@@ -1,0 +1,19 @@
+
+
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8.9)
+
+PROJECT(LandProcessor CXX)
+
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+ 
+FIND_PACKAGE(GDAL)
+ 
+ 
+INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR})
+ 
+ADD_EXECUTABLE(test0 tests/test0.cpp LandProcessor.cpp LandProcessor.hpp)
+
+
+ENABLE_TESTING()
+
+ADD_TEST(test0 test0)
