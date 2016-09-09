@@ -142,6 +142,8 @@ void LandProcessor::preprocessRasterData()
   GRASS.setErrorFile("/tmp/bvservice-grass/processrasterdata.err");
   GRASS.appendTask("v.in.ogr",{{"input",QString::fromStdString(getInputVectorPath(m_InputPlotsFile))},
                                {"output","plots"}},{"--o"});
+  GRASS.appendTask("r.in.gdal",{{"input",QString::fromStdString(getInputRasterPath(m_InputDEMFile))},
+                                 {"output","dem"}},{"--o"});
   GRASS.runJob();
 }
 
