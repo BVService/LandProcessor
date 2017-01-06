@@ -1,5 +1,5 @@
 /*
- * test0.cpp
+ * ScenarioTesting.cpp
  *
  *  Created on: 8 sept. 2016
  *      Author: ezadonina
@@ -16,18 +16,13 @@
 #include "tests-config.hpp"
 
 
-
 int main(int argc, char *argv[])
 {
+
   openfluid::base::Environment::init();
 
-  std::cout << openfluid::base::Environment::getTempDir() << std::endl;
-
-
-  openfluid::tools::emptyDirectoryRecursively(TESTS_RESULTS_PATH+"/DardaillonSmall_0");
-
   LandProcessor LP(TESTS_DATASETS_PATH+"/DardaillonSmall",
-		           TESTS_RESULTS_PATH+"/DardaillonSmall_0");
+  		             TESTS_RESULTS_PATH+"/DardaillonSmall_2stages");
 
   if (!LP.isReady())
   {
@@ -37,11 +32,6 @@ int main(int argc, char *argv[])
 
   try
   {
-	  LP.preprocessVectorData();
-	  LP.preprocessRasterData();
-    LP.createSRFandLNR();
-	  LP.setSRFParameters();
-	  LP.setLNRParameters();
     LP.extractPlotsLimits();
     LP.attributeLinearStructures();
     LP.createSU();
