@@ -38,5 +38,6 @@ make
 - [ ] Introduce install and packaging using CPack in CMake configuration
 - [ ] Improve management of input and output for easier implementation of 2 stages processing
 - [ ] Refactor main source code to be more easily maintainable
+- [ ] Introduce correct land use code in tests
      
 
