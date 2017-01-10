@@ -29,8 +29,10 @@
 
 
 LandProcessor::LandProcessor(const std::string& InputPath, const std::string& OutputPath):
-m_InputPath(InputPath), m_OutputPath(OutputPath)
+  m_InputPath(InputPath), m_OutputPath(OutputPath)
 {
+  VERBOSE_MESSAGE(1,"Entering " << __PRETTY_FUNCTION__);
+
   openfluid::tools::Filesystem::makeDirectory(OutputPath);
   openfluid::tools::Filesystem::makeDirectory(getOutputVectorPath());
   openfluid::tools::Filesystem::makeDirectory(getOutputRasterPath());
@@ -56,7 +58,7 @@ m_InputPath(InputPath), m_OutputPath(OutputPath)
 
 LandProcessor::~LandProcessor()
 {
-
+  VERBOSE_MESSAGE(1,"Entering " << __PRETTY_FUNCTION__);
 }
 
 
@@ -129,7 +131,7 @@ std::string LandProcessor::getInputRasterPath(const std::string& Filename) const
 void LandProcessor::preprocessVectorData()
 {
 
-  BLOCK_ENTER(__PRETTY_FUNCTION__)
+  VERBOSE_MESSAGE(1,"Entering " << __PRETTY_FUNCTION__);
 
   // =====================================================================
   // Variables that are used in this block
@@ -139,7 +141,7 @@ void LandProcessor::preprocessVectorData()
 
   int FIDA, FIDB;
 
-  std::vector<std::string> FieldNamesTab, ClipTab, ClipedTab;
+  std::vector<std::string> FieldNamesTable, ClipTable, ClipedTable;
   OGRDataSource *DataSource, *Plots;
   OGRLayer *SQLLayer, *PlotsLayer;
   OGRFeature *PlotsFeature;
@@ -151,13 +153,9 @@ void LandProcessor::preprocessVectorData()
   OGRSpatialReference *VectorSRS, RasterSRS;
   const char *VectorDataEPSGCode, *RasterDataEPSGCode;
 
-  // =====================================================================
-  // Data checking (format, SRS, type, etc.)
-  // =====================================================================
-
   mp_VectorDriver = OGRSFDriverRegistrar::GetRegistrar()->GetDriverByName(m_VectorDriverName.c_str());
 
-  if (!openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputPlotsFile).c_str()))
+  if (!openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputPlotsFile)))
   {
     throw std::runtime_error("LandProcessor::preprocessVectorData(): " + m_InputPlotsFile + ": there is no such file input vector directory");
   }
@@ -189,7 +187,7 @@ void LandProcessor::preprocessVectorData()
     throw std::runtime_error("LandProcessor::preprocessVectorData(): " + m_InputPlotsFile + ":  vector data EPSG code does not correspond to the default EPSG code");
   }
 
-  if (!openfluid::tools::Filesystem::isFile(getInputRasterPath(m_InputDEMFile).c_str()))
+  if (!openfluid::tools::Filesystem::isFile(getInputRasterPath(m_InputDEMFile)))
   {
     throw std::runtime_error("LandProcessor::preprocessVectorData(): " + m_InputDEMFile + ": there is no such input raster file in input raster directory");
   }
@@ -251,14 +249,14 @@ void LandProcessor::preprocessVectorData()
   PlotsLayer->ResetReading();
   FeatureDefn = PlotsLayer->GetLayerDefn();
 
-  FieldNamesTab.clear();
+  FieldNamesTable.clear();
 
   for (int i = 0; i < FeatureDefn->GetFieldCount(); i++)
   {
-    FieldNamesTab.push_back(PlotsLayer->GetLayerDefn()->GetFieldDefn(i)->GetNameRef());
+    FieldNamesTable.push_back(PlotsLayer->GetLayerDefn()->GetFieldDefn(i)->GetNameRef());
   }
 
-  if(std::find(FieldNamesTab.begin(), FieldNamesTab.end(), m_IDFieldName) != FieldNamesTab.end())
+  if(std::find(FieldNamesTable.begin(), FieldNamesTable.end(), m_IDFieldName) != FieldNamesTable.end())
   {
     for (int i = 0; i < PlotsLayer->GetFeatureCount(); i++)
     {
@@ -278,7 +276,7 @@ void LandProcessor::preprocessVectorData()
     }
   }
 
-  FieldNamesTab.clear();
+  FieldNamesTable.clear();
   OGRDataSource::DestroyDataSource(Plots);
 
   // =====================================================================
@@ -292,11 +290,11 @@ void LandProcessor::preprocessVectorData()
 
   DataSource = OGRSFDriverRegistrar::Open( getInputVectorPath().c_str(), TRUE );
 
-  ClipTab.push_back("0");
+  ClipTable.push_back("0");
 
-  while(ClipTab.size() != ClipedTab.size())
+  while(ClipTable.size() != ClipedTable.size())
   {
-    ClipTab.clear();
+    ClipTable.clear();
     PlotsLayer = Plots->GetLayer(0);
     PlotsLayer->ResetReading();
     while ((PlotsFeature = PlotsLayer->GetNextFeature()) != nullptr)
@@ -316,7 +314,7 @@ void LandProcessor::preprocessVectorData()
         {
           FIDB = SQLLayer->GetFeature(i)->GetFieldAsInteger("RID");
           FIDBA = std::to_string(FIDB) + "/" + std::to_string(FIDA);
-          if (std::find(ClipTab.begin(), ClipTab.end(), FIDBA) == ClipTab.end())
+          if (std::find(ClipTable.begin(), ClipTable.end(), FIDBA) == ClipTable.end())
           {
             if (NewGeometry == nullptr)
             {
@@ -333,7 +331,7 @@ void LandProcessor::preprocessVectorData()
               }
             }
             FIDAB = std::to_string(FIDA) + "/" + std::to_string(FIDB);
-            ClipTab.push_back(FIDAB);
+            ClipTable.push_back(FIDAB);
           }
         }
         if (NewGeometry != nullptr)
@@ -347,7 +345,7 @@ void LandProcessor::preprocessVectorData()
     }
     PlotsLayer = Plots->GetLayer(0);
     PlotsLayer->ResetReading();
-    ClipedTab.clear();
+    ClipedTable.clear();
     while ((PlotsFeature = PlotsLayer->GetNextFeature()) != nullptr)
     {
       PlotsGeometry = PlotsFeature->GetGeometryRef();
@@ -364,10 +362,10 @@ void LandProcessor::preprocessVectorData()
         {
           FIDB = SQLLayer->GetFeature(i)->GetFieldAsInteger("RID");
           FIDBA = std::to_string(FIDB) + "/" + std::to_string(FIDA);
-          if (std::find(ClipedTab.begin(), ClipedTab.end(), FIDBA) == ClipedTab.end())
+          if (std::find(ClipedTable.begin(), ClipedTable.end(), FIDBA) == ClipedTable.end())
           {
             FIDAB = std::to_string(FIDA) + "/" + std::to_string(FIDB);
-            ClipedTab.push_back(FIDAB);
+            ClipedTable.push_back(FIDAB);
           }
         }
       }
@@ -376,8 +374,8 @@ void LandProcessor::preprocessVectorData()
     }
   }
 
-  ClipTab.clear();
-  ClipedTab.clear();
+  ClipTable.clear();
+  ClipedTable.clear();
   OGRDataSource::DestroyDataSource(Plots);
 
   openfluid::utils::GrassGISProxy GRASS("/tmp/bvservice-grass","temp");
@@ -390,7 +388,7 @@ void LandProcessor::preprocessVectorData()
 
   GRASS.appendTask("g.region", {{"raster", "dem"}});
 
-  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputPlotsVectorFile).c_str()))
+  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputPlotsVectorFile)))
   {
     mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputPlotsVectorFile).c_str());
   }
@@ -410,31 +408,30 @@ void LandProcessor::preprocessVectorData()
   PlotsLayer = Plots->GetLayer(0);
   FeatureDefn = PlotsLayer->GetLayerDefn();
 
-  FieldNamesTab.clear();
+  FieldNamesTable.clear();
 
   for (int i = 0; i < FeatureDefn->GetFieldCount(); i++)
   {
     if (FeatureDefn->GetFieldDefn(i)->GetNameRef() != m_IDFieldName)
     {
-      FieldNamesTab.push_back(FeatureDefn->GetFieldDefn(i)->GetNameRef());
+      FieldNamesTable.push_back(FeatureDefn->GetFieldDefn(i)->GetNameRef());
     }
   }
 
-  if (FieldNamesTab.size() > 0)
+  if (FieldNamesTable.size() > 0)
   {
-    for (int i = 0; i < FieldNamesTab.size(); i++)
+    for (int i = 0; i < FieldNamesTable.size(); i++)
     {
-      int FieldIndex = FeatureDefn->GetFieldIndex(FieldNamesTab.at(i).c_str());
+      int FieldIndex = FeatureDefn->GetFieldIndex(FieldNamesTable.at(i).c_str());
       PlotsLayer->DeleteField(FieldIndex);
     }
   }
 
-  FieldNamesTab.clear();
+  FieldNamesTable.clear();
 
   OGRDataSource::DestroyDataSource(Plots);
   GDALClose( DEM );
 
-  BLOCK_EXIT(__PRETTY_FUNCTION__)
 }
 
 
@@ -444,17 +441,18 @@ void LandProcessor::preprocessVectorData()
 
 void LandProcessor::preprocessRasterData()
 {
-  BLOCK_ENTER(__PRETTY_FUNCTION__)
 
-    // =====================================================================
-    // Variables that are used in this block
-    // =====================================================================
+  VERBOSE_MESSAGE(1,"Entering " << __PRETTY_FUNCTION__);
 
-      int *Row, *PlotsUpperRow, *PlotsMiddleRow, *PlotsLowerRow,
-      *DrainageUpperRow, *DrainageMiddleRow, *DrainageLowerRow, *DrainageRow,
-      *RasterIDUpperRow, *RasterIDMiddleRow, *RasterIDLowerRow, *RasterIDRow,
-      *OutletsUpperRow, *OutletsMiddleRow, *OutletsLowerRow,
-      *CatchmentsUpperRow, *CatchmentsMiddleRow, *CatchmentsLowerRow;
+  // =====================================================================
+  // Variables that are used in this block
+  // =====================================================================
+
+  int *Row, *PlotsUpperRow, *PlotsMiddleRow, *PlotsLowerRow,
+  *DrainageUpperRow, *DrainageMiddleRow, *DrainageLowerRow, *DrainageRow,
+  *RasterIDUpperRow, *RasterIDMiddleRow, *RasterIDLowerRow, *RasterIDRow,
+  *OutletsUpperRow, *OutletsMiddleRow, *OutletsLowerRow,
+  *CatchmentsUpperRow, *CatchmentsMiddleRow, *CatchmentsLowerRow;
 
   unsigned int PlotsCount, CatchmentsCount;
 
@@ -470,11 +468,7 @@ void LandProcessor::preprocessRasterData()
 
   char **Options = nullptr;
 
-  // ======================================================================================
-  // Checking if necessary vector file is present in the appropriate folder
-  // ======================================================================================
-
-  if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputPlotsVectorFile).c_str()))
+  if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputPlotsVectorFile)))
   {
     throw std::runtime_error("LandProcessor::preprocessRasterData(): " + m_OutputPlotsVectorFile + ": no such file in the output vector directory");
   }
@@ -511,7 +505,7 @@ void LandProcessor::preprocessRasterData()
 
   Envelope = new OGREnvelope();
 
-  UnionGeometry->Buffer(mp_GeoTransformVal[1])->getEnvelope(Envelope);
+  UnionGeometry->Buffer(m_GeoTransformVal[1])->getEnvelope(Envelope);
 
   // =====================================================================
   // GRASS GIS data processing
@@ -538,8 +532,10 @@ void LandProcessor::preprocessRasterData()
                                 {"s", QString::fromStdString(std::to_string(Envelope->MinY))},
                                 {"e", QString::fromStdString(std::to_string(Envelope->MaxX))},
                                 {"w", QString::fromStdString(std::to_string(Envelope->MinX))},
-                                {"nsres", QString::fromStdString(std::to_string(mp_GeoTransformVal[1]))},
-                                {"ewres", QString::fromStdString(std::to_string(mp_GeoTransformVal[1]))}});
+                                {"nsres", QString::fromStdString(std::to_string(m_GeoTransformVal[1]))},
+                                {"ewres", QString::fromStdString(std::to_string(m_GeoTransformVal[1]))}});
+
+  delete Envelope;
 
   // =====================================================================
   // Vector-to-raster conversion
@@ -554,7 +550,7 @@ void LandProcessor::preprocessRasterData()
   GRASS.appendTask("v.db.dropcolumn", {{"map", QString::fromStdString("plotsrastervector")},
                                        {"column", QString::fromStdString("label")}});
 
-  if (openfluid::tools::Filesystem::isFile(getOutputRasterPath("plotsrastervector.shp").c_str()))
+  if (openfluid::tools::Filesystem::isFile(getOutputRasterPath("plotsrastervector.shp")))
   {
     mp_VectorDriver->DeleteDataSource(getOutputVectorPath("plotsrastervector.shp").c_str());
   }
@@ -588,7 +584,7 @@ void LandProcessor::preprocessRasterData()
 
 
 
-  if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputDEMFile).c_str()))
+  if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputDEMFile)))
   {
     mp_RasterDriver->Delete(getOutputRasterPath(m_OutputDEMFile).c_str());
   }
@@ -598,7 +594,7 @@ void LandProcessor::preprocessRasterData()
                                   {"format", QString::fromStdString("GTiff")}},
                    {"--o"});
 
-  if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputSlopeRasterFile).c_str()))
+  if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputSlopeRasterFile)))
   {
     mp_RasterDriver->Delete(getOutputRasterPath(m_OutputSlopeRasterFile).c_str());
   }
@@ -608,7 +604,7 @@ void LandProcessor::preprocessRasterData()
                                   {"format", QString::fromStdString("GTiff")}},
                    {"--o"});
 
-  if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputDrainageRasterFile).c_str()))
+  if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputDrainageRasterFile)))
   {
     mp_RasterDriver->Delete(getOutputRasterPath(m_OutputDrainageRasterFile).c_str());
   }
@@ -618,7 +614,7 @@ void LandProcessor::preprocessRasterData()
                                   {"format", QString::fromStdString("GTiff")}},
                    {"--o"});
 
-  if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputPlotsRasterFile).c_str()))
+  if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputPlotsRasterFile)))
   {
     mp_RasterDriver->Delete(getOutputRasterPath(m_OutputPlotsRasterFile).c_str());
   }
@@ -638,14 +634,14 @@ void LandProcessor::preprocessRasterData()
   OGRDataSource::DestroyDataSource(PlotsV);
 
   // =========================================================================================
-  // ID raster creation of  that will be used to set outlets, receivers and catchments IDs
+  // Creation of cell ID raster that will be used to set outlets, receivers and catchments IDs
   // =========================================================================================
 
   DEM = (GDALDataset *) GDALOpen( getOutputRasterPath(m_OutputDEMFile).c_str(), GA_ReadOnly );
   DEMBand = DEM->GetRasterBand(1);
   getGeoTransform(DEM);
 
-  if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputIDRasterFile).c_str()))
+  if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputIDRasterFile)))
   {
     mp_RasterDriver->Delete(getOutputRasterPath(m_OutputIDRasterFile).c_str());
   }
@@ -675,7 +671,7 @@ void LandProcessor::preprocessRasterData()
   CPLFree(Row);
   RasterIDBand->FlushCache();
   RasterIDBand->SetNoDataValue(-9999);
-  RasterID->SetGeoTransform(mp_GeoTransformVal);
+  RasterID->SetGeoTransform(m_GeoTransformVal);
   RasterID->SetProjection(DEM->GetProjectionRef());
   GDALClose( RasterID );
 
@@ -692,7 +688,7 @@ void LandProcessor::preprocessRasterData()
   RasterID = (GDALDataset *) GDALOpen( getOutputRasterPath(m_OutputIDRasterFile).c_str(), GA_ReadOnly );
   RasterIDBand = RasterID->GetRasterBand(1);
 
-  if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputOutletsRasterFile).c_str()))
+  if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputOutletsRasterFile)))
   {
     mp_RasterDriver->Delete(getOutputRasterPath(m_OutputOutletsRasterFile).c_str());
   }
@@ -759,7 +755,7 @@ void LandProcessor::preprocessRasterData()
 
   OutletsBand->FlushCache();
   OutletsBand->SetNoDataValue(-9999);
-  Outlets->SetGeoTransform(mp_GeoTransformVal);
+  Outlets->SetGeoTransform(m_GeoTransformVal);
   Outlets->SetProjection(DEM->GetProjectionRef());
   GDALClose( Outlets );
 
@@ -770,7 +766,7 @@ void LandProcessor::preprocessRasterData()
   Outlets = (GDALDataset *) GDALOpen( getOutputRasterPath(m_OutputOutletsRasterFile).c_str(), GA_ReadOnly );
   OutletsBand = Outlets->GetRasterBand(1);
 
-  if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputReceiversRasterFile).c_str()))
+  if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputReceiversRasterFile)))
   {
     mp_RasterDriver->Delete(getOutputRasterPath(m_OutputReceiversRasterFile).c_str());
   }
@@ -778,7 +774,7 @@ void LandProcessor::preprocessRasterData()
   Receivers = mp_RasterDriver->Create( getOutputRasterPath(m_OutputReceiversRasterFile).c_str(), DEM->GetRasterXSize(), DEM->GetRasterYSize(), 1, GDT_Int32, Options );
   ReceiversBand = Receivers->GetRasterBand(1);
 
-  if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputDownslopeRasterFile).c_str()))
+  if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputDownslopeRasterFile)))
   {
     mp_RasterDriver->Delete(getOutputRasterPath(m_OutputDownslopeRasterFile).c_str());
   }
@@ -846,7 +842,7 @@ void LandProcessor::preprocessRasterData()
 
   ReceiversBand->FlushCache();
   ReceiversBand->SetNoDataValue(-9999);
-  Receivers->SetGeoTransform(mp_GeoTransformVal);
+  Receivers->SetGeoTransform(m_GeoTransformVal);
   Receivers->SetProjection(DEM->GetProjectionRef());
   GDALClose( Receivers );
 
@@ -925,7 +921,7 @@ void LandProcessor::preprocessRasterData()
 
   DownslopeBand->FlushCache();
   DownslopeBand->SetNoDataValue(-9999);
-  Downslope->SetGeoTransform(mp_GeoTransformVal);
+  Downslope->SetGeoTransform(m_GeoTransformVal);
   Downslope->SetProjection(DEM->GetProjectionRef());
   GDALClose( Downslope );
 
@@ -935,7 +931,7 @@ void LandProcessor::preprocessRasterData()
   // Then we fill the cells that belong to the same parcel working outwards using drainage raster
   // ============================================================================================
 
-  if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputCatchmentsRasterFile).c_str()))
+  if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputCatchmentsRasterFile)))
   {
     mp_RasterDriver->Delete(getOutputRasterPath(m_OutputCatchmentsRasterFile).c_str());
   }
@@ -976,7 +972,7 @@ void LandProcessor::preprocessRasterData()
 
   CatchmentsBand->FlushCache();
   CatchmentsBand->SetNoDataValue(-9999);
-  Catchments->SetGeoTransform(mp_GeoTransformVal);
+  Catchments->SetGeoTransform(m_GeoTransformVal);
   Catchments->SetProjection(DEM->GetProjectionRef());
   GDALClose( Catchments );
 
@@ -1130,7 +1126,7 @@ void LandProcessor::preprocessRasterData()
 
   CatchmentsBand->FlushCache();
   CatchmentsBand->SetNoDataValue(-9999);
-  Catchments->SetGeoTransform(mp_GeoTransformVal);
+  Catchments->SetGeoTransform(m_GeoTransformVal);
   Catchments->SetProjection(DEM->GetProjectionRef());
   GDALClose( Catchments );
   GDALClose( Outlets );
@@ -1139,7 +1135,6 @@ void LandProcessor::preprocessRasterData()
   GDALClose( RasterID );
   GDALClose( DEM );
 
-  BLOCK_EXIT(__PRETTY_FUNCTION__)
 }
 
 
@@ -1149,29 +1144,32 @@ void LandProcessor::preprocessRasterData()
 
 void LandProcessor::createSRFandLNR()
 {
-  BLOCK_ENTER(__PRETTY_FUNCTION__)
+
+  VERBOSE_MESSAGE(1,"Entering " << __PRETTY_FUNCTION__);
+
 
   // =====================================================================
   // Variables that are used in this block
   // =====================================================================
 
   int i, FieldIndex, Value, IDCat, IDCat2, IDCat3, IDN, ID2N, ID3N, IDCatR, IDPRO, IDPR, IDPR2,
-      IDPlotO, IDPlot, IDPlot2, IDPlot3, IDPlotNew, IDPlot2New, IDPlot3New,
-      FID, IDField, IDMax, N, Beginning, End, pos, IDPlotAbove;
+  IDPlotO, IDPlot, IDPlot2, IDPlot3, IDPlotNew, IDPlot2New, IDPlot3New,
+  FID, IDField, IDMax, N, Beginning, End, pos, IDPlotAbove;
 
   std::string FieldName, FileName, ID, ID2, ID3, IDOld, IDNew, ID2New,
   ID3New, IDAbove, IDTo, FaceA, FaceB, FaceAB, FaceBA;
 
-  std::vector<std::string> FieldNamesTab, IDNewTab, ID2NewTab, ID3NewTab, IDOldTab, ID2OldTab,
-  ID3OldTab, IDConnectionProblemTab, IDTab, IDDoublesTab, GivesToTab, FacesTab;
+  std::vector<std::string> FieldNamesTable, IDNewTable, ID2NewTable, ID3NewTable, IDOldTable, FacesTable;
 
-  std::vector<int> FIDTable, IDCatTab, IndexToRemove, IDPlotTab, IDPlotNewTab, IDPlot2NewTab, IDPlot3NewTab,
-  IDPlotOldTab, IDPlot2OldTab, IDPlot3OldTab, IDPlotLargeTab, MissingIDTab, FIDSmallTab, FeaturesToDelete,
-  IDPlotAllSmallTab, FIDSliverTab, FIDConnectionProblemTab, IDIndMax;
+  std::vector<int> FIDTable, FIDToRemoveTable, IDPlotTable, IDPlotNewTable, IDPlot2NewTable, IDPlot3NewTable,
+  IDPlotLargeTable, MissingIDTable, FIDSmallTable, FeaturesToDeleteTable,
+  IDPlotAllSmallTable, FIDSliverTable, FIDConnectionProblemTable;
 
-  std::vector < std::vector <int> > OutletsTable, ReceiversTable;
+  std::vector < std::vector <int>> OutletsTable, ReceiversTable;
 
-  std::vector< std::vector<int> > Table(5,std::vector<int >(0)), BigTable(5,std::vector<int >(0)), CatchmentsTab(10,std::vector<int >(0));;
+  std::vector< std::vector<int>> Table(5,std::vector<int >(0)), BigTable(5,std::vector<int >(0));
+  std::vector< std::vector<int>> CatchmentsTable(10,std::vector<int >(0));
+  std::vector< std::vector<int>> IDPlotIDMaxTable(2,std::vector<int >(0));
 
   GDALDataset *Dataset;
 
@@ -1179,7 +1177,7 @@ void LandProcessor::createSRFandLNR()
   OGRLayer *PlotsLayer, *CatchmentsLayer, *SQLLayer, *OutletsLayer, *ReceiversLayer, *EntitiesLayer,
   *UnionLayer, *FinalLayer, *LNRLayer, *SRFLayer;
   OGRFeature *CatchmentsFeature, *OutletsFeature, *ReceiversFeature,
-  *SQLFeature, *EntitiesFeature, *NewFeature, *AggregatingFeature,
+  *SQLFeature, *EntitiesFeature, *EntitiesFeatureToUpdate, *NewFeature, *AggregatingFeature,
   *UnionFeature, *UnionFeatureToUpdate, *FinalFeature,
   *LNRFeature, *SRFFeature;
   OGRGeometry *CatchmentsGeometry, *OutletsGeometry, *ReceiversGeometry, *SQLGeometry,
@@ -1188,28 +1186,24 @@ void LandProcessor::createSRFandLNR()
 
   CPLErr ERR;
 
-  // ======================================================================================
-  // Checking if necessary vector files are present in the appropriate folder
-  // ======================================================================================
-
   mp_VectorDriver = OGRSFDriverRegistrar::GetRegistrar()->GetDriverByName(m_VectorDriverName.c_str());
 
-  if (!openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputCatchmentsRasterFile).c_str()))
+  if (!openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputCatchmentsRasterFile)))
   {
     throw std::runtime_error("LandProcessor::createSRFandLNR(): " + m_OutputCatchmentsRasterFile + ": no such file in the output raster directory");
   }
 
-  if (!openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputOutletsRasterFile).c_str()))
+  if (!openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputOutletsRasterFile)))
   {
     throw std::runtime_error("LandProcessor::createSRFandLNR(): " + m_OutputOutletsRasterFile + ": no such file in the output raster directory");
   }
 
-  if (!openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputReceiversRasterFile).c_str()))
+  if (!openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputReceiversRasterFile)))
   {
     throw std::runtime_error("LandProcessor::createSRFandLNR(): " + m_OutputReceiversRasterFile + ": no such file in the output raster directory");
   }
 
-  if (!openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputDownslopeRasterFile).c_str()))
+  if (!openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputDownslopeRasterFile)))
   {
     throw std::runtime_error("LandProcessor::createSRFandLNR(): " + m_OutputDownslopeRasterFile + ": no such file in the output raster directory");
   }
@@ -1222,7 +1216,7 @@ void LandProcessor::createSRFandLNR()
 
   mp_SRS = Plots->GetLayer(0)->GetSpatialRef();
 
-  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputCatchmentsVectorFile).c_str()))
+  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputCatchmentsVectorFile)))
   {
     mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputCatchmentsVectorFile).c_str());
   }
@@ -1254,7 +1248,7 @@ void LandProcessor::createSRFandLNR()
 
   OGRDataSource::DestroyDataSource(Catchments);
 
-  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputOutletsVectorFile).c_str()))
+  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputOutletsVectorFile)))
   {
     mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputOutletsVectorFile).c_str());
   }
@@ -1262,12 +1256,12 @@ void LandProcessor::createSRFandLNR()
   Outlets = mp_VectorDriver->CreateDataSource(getOutputVectorPath(m_OutputOutletsVectorFile).c_str());
   OutletsLayer = Outlets->CreateLayer("outlets", mp_SRS, wkbPolygon);
 
-  FieldNamesTab.clear();
-  FieldNamesTab = {"IDCatO", "IDPlotO", "IDPRO"};
+  FieldNamesTable.clear();
+  FieldNamesTable = {"IDCatO", "IDPlotO", "IDPRO"};
 
-  for (int i = 0; i < FieldNamesTab.size(); i++)
+  for (int i = 0; i < FieldNamesTable.size(); i++)
   {
-    createField(OutletsLayer, FieldNamesTab[i].c_str(), OFTInteger);
+    createField(OutletsLayer, FieldNamesTable[i].c_str(), OFTInteger);
   }
 
   GDALClose( Dataset );
@@ -1356,7 +1350,7 @@ void LandProcessor::createSRFandLNR()
 
   OGRDataSource::DestroyDataSource(Outlets);
 
-  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputReceiversVectorFile).c_str()))
+  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputReceiversVectorFile)))
   {
     mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputReceiversVectorFile).c_str());
   }
@@ -1364,15 +1358,15 @@ void LandProcessor::createSRFandLNR()
   Receivers = mp_VectorDriver->CreateDataSource(getOutputVectorPath(m_OutputReceiversVectorFile).c_str());
   ReceiversLayer = Receivers->CreateLayer("receivers", mp_SRS, wkbPolygon);
 
-  FieldNamesTab.clear();
-  FieldNamesTab = {"IDPRR", "IDPlotR", "IDCatR"};
+  FieldNamesTable.clear();
+  FieldNamesTable = {"IDPRR", "IDPlotR", "IDCatR"};
 
-  for (int i = 0; i < FieldNamesTab.size(); i++)
+  for (int i = 0; i < FieldNamesTable.size(); i++)
   {
-    createField(ReceiversLayer, FieldNamesTab.at(i).c_str(), OFTInteger);
+    createField(ReceiversLayer, FieldNamesTable.at(i).c_str(), OFTInteger);
   }
 
-  FieldNamesTab.clear();
+  FieldNamesTable.clear();
 
   GDALClose( Dataset );
 
@@ -1467,7 +1461,7 @@ void LandProcessor::createSRFandLNR()
   // Regrouping catchments that have the same IDCat
   // ======================================================================
 
-  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputCatchmentsGroupedVectorFile).c_str()))
+  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputCatchmentsGroupedVectorFile)))
   {
     mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputCatchmentsGroupedVectorFile).c_str());
   }
@@ -1534,23 +1528,23 @@ void LandProcessor::createSRFandLNR()
   Catchments = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputCatchmentsGroupedVectorFile).c_str(), TRUE );
   CatchmentsLayer = Catchments->GetLayer(0);
 
-  FieldNamesTab.clear();
-  FieldNamesTab = {"IDPlot", "IDPR", "IDCat2", "IDPlot2", "IDPR2", "IDCat3", "IDPlot3", "IDPR3"};
+  FieldNamesTable.clear();
+  FieldNamesTable = {"IDPlot", "IDPR", "IDCat2", "IDPlot2", "IDPR2", "IDCat3", "IDPlot3", "IDPR3"};
 
-  for (int i = 0; i < FieldNamesTab.size(); i++)
+  for (int i = 0; i < FieldNamesTable.size(); i++)
   {
-    createField(CatchmentsLayer, FieldNamesTab[i].c_str(), OFTInteger);
+    createField(CatchmentsLayer, FieldNamesTable[i].c_str(), OFTInteger);
   }
 
-  FieldNamesTab.clear();
-  FieldNamesTab = {"ID","ID2","ID3"};
+  FieldNamesTable.clear();
+  FieldNamesTable = {"ID","ID2","ID3"};
 
-  for (int i = 0; i < FieldNamesTab.size(); i++)
+  for (int i = 0; i < FieldNamesTable.size(); i++)
   {
-    createField(CatchmentsLayer, FieldNamesTab[i].c_str(),  OFTString);
+    createField(CatchmentsLayer, FieldNamesTable[i].c_str(),  OFTString);
   }
 
-  FieldNamesTab.clear();
+  FieldNamesTable.clear();
 
   CatchmentsLayer->SyncToDisk();
   CatchmentsLayer->ResetReading();
@@ -1661,7 +1655,7 @@ void LandProcessor::createSRFandLNR()
   CatchmentsLayer->SyncToDisk();
   OGRDataSource::DestroyDataSource(Catchments);
 
-  // ==========================================================================================================
+  // ======================================================================
   // Populating catchments vector attributes ID, ID2 and ID3
   // with "IDPlot+N+Number"-like identifiers based on their attributes and their
   // (respective) location.
@@ -1675,7 +1669,7 @@ void LandProcessor::createSRFandLNR()
   // in that direction.
   // - catchments that belong to the same plot and drain into the same catchment get same ID label
   // only if they share a limit.
-  // ==========================================================================================================
+  // ======================================================================
 
   Catchments = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputCatchmentsGroupedVectorFile).c_str(), TRUE );
   CatchmentsLayer = Catchments->GetLayer(0);
@@ -1683,27 +1677,27 @@ void LandProcessor::createSRFandLNR()
 
   while ((CatchmentsFeature = CatchmentsLayer->GetNextFeature()) != nullptr)
   {
-    CatchmentsTab[0].push_back(CatchmentsFeature->GetFID());
-    CatchmentsTab[1].push_back(CatchmentsFeature->GetFieldAsInteger("IDCat"));
-    CatchmentsTab[2].push_back(CatchmentsFeature->GetFieldAsInteger("IDPlot"));
-    CatchmentsTab[3].push_back(CatchmentsFeature->GetFieldAsInteger("IDCat2"));
-    CatchmentsTab[4].push_back(CatchmentsFeature->GetFieldAsInteger("IDPlot2"));
-    CatchmentsTab[5].push_back(CatchmentsFeature->GetFieldAsInteger("IDCat3"));
-    CatchmentsTab[6].push_back(CatchmentsFeature->GetFieldAsInteger("IDPlot3"));
-    CatchmentsTab[7].push_back(0);
-    CatchmentsTab[8].push_back(0);
-    CatchmentsTab[9].push_back(0);
+    CatchmentsTable[0].push_back(CatchmentsFeature->GetFID());
+    CatchmentsTable[1].push_back(CatchmentsFeature->GetFieldAsInteger("IDCat"));
+    CatchmentsTable[2].push_back(CatchmentsFeature->GetFieldAsInteger("IDPlot"));
+    CatchmentsTable[3].push_back(CatchmentsFeature->GetFieldAsInteger("IDCat2"));
+    CatchmentsTable[4].push_back(CatchmentsFeature->GetFieldAsInteger("IDPlot2"));
+    CatchmentsTable[5].push_back(CatchmentsFeature->GetFieldAsInteger("IDCat3"));
+    CatchmentsTable[6].push_back(CatchmentsFeature->GetFieldAsInteger("IDPlot3"));
+    CatchmentsTable[7].push_back(0);
+    CatchmentsTable[8].push_back(0);
+    CatchmentsTable[9].push_back(0);
   }
 
   OGRDataSource::DestroyDataSource(Catchments);
 
   Table.clear();
 
-  for (int i = 0; i < CatchmentsTab[0].size(); i++)
+  for (int i = 0; i < CatchmentsTable[0].size(); i++)
   {
-    FID = CatchmentsTab[0][i];
-    IDPlot = CatchmentsTab[2][i];
-    IDPlot2 = CatchmentsTab[4][i];
+    FID = CatchmentsTable[0][i];
+    IDPlot = CatchmentsTable[2][i];
+    IDPlot2 = CatchmentsTable[4][i];
     if (IDPlot2 == 0)
     {
       if (std::find(Table[0].begin(), Table[0].end(), IDPlot) == Table[0].end())
@@ -1715,9 +1709,9 @@ void LandProcessor::createSRFandLNR()
           Table[2].push_back(IDPlot2);
           Table[3].push_back(1);
           Table[4].push_back(FID);
-          CatchmentsTab[7][i] = 1;
-          CatchmentsTab[8][i] = 1;
-          CatchmentsTab[9][i] = 1;
+          CatchmentsTable[7][i] = 1;
+          CatchmentsTable[8][i] = 1;
+          CatchmentsTable[9][i] = 1;
         }
         else
         {
@@ -1726,9 +1720,9 @@ void LandProcessor::createSRFandLNR()
           Table[2].push_back(0);
           Table[3].push_back(1);
           Table[4].push_back(FID);
-          CatchmentsTab[7][i] = 1;
-          CatchmentsTab[8][i] = 1;
-          CatchmentsTab[9][i] = 1;;
+          CatchmentsTable[7][i] = 1;
+          CatchmentsTable[8][i] = 1;
+          CatchmentsTable[9][i] = 1;;
         }
       }
     }
@@ -1755,12 +1749,11 @@ void LandProcessor::createSRFandLNR()
     {
       if (Table[0][i] != 0)
       {
-        pos  = std::find(CatchmentsTab[0].begin(), CatchmentsTab[0].end(), Table[4][i]) - CatchmentsTab[0].begin();
-        FID = CatchmentsTab[0].at(pos);
-        IDPlot = CatchmentsTab[2].at(pos);
-        IDN = CatchmentsTab[7].at(pos);
-        ID2N = CatchmentsTab[8].at(pos);
-        ID3N = CatchmentsTab[9].at(pos);
+        FID = CatchmentsTable[0][Table[4][i]];
+        IDPlot = CatchmentsTable[2][Table[4][i]];
+        IDN = CatchmentsTable[7][Table[4][i]];
+        ID2N = CatchmentsTable[8][Table[4][i]];
+        ID3N = CatchmentsTable[9][Table[4][i]];
         m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputCatchmentsGroupedVectorFile.substr(0, m_OutputCatchmentsGroupedVectorFile.find(".")) + " WHERE IDPlot2 == 0 "
             "AND IDPlot == " + std::to_string(IDPlot) + " AND "
             "ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + m_OutputCatchmentsGroupedVectorFile.substr(0, m_OutputCatchmentsGroupedVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FID) +"))) > 0";
@@ -1770,28 +1763,28 @@ void LandProcessor::createSRFandLNR()
           FIDTable.clear();
           for (int j = 0; j < SQLLayer->GetFeatureCount(); j++)
           {
-            if (CatchmentsTab[7][SQLLayer->GetFeature(j)->GetFieldAsInteger("RID")] == 0 )
-            {
-              FIDTable.push_back(SQLLayer->GetFeature(j)->GetFieldAsInteger("RID"));
-            }
+            FIDTable.push_back(SQLLayer->GetFeature(j)->GetFieldAsInteger("RID"));
           }
           DataSource->ReleaseResultSet(SQLLayer);
           for (int k = 0; k < FIDTable.size(); k++)
           {
-            pos = std::find(CatchmentsTab[0].begin(), CatchmentsTab[0].end(), FIDTable[k]) - CatchmentsTab[0].begin();
-            CatchmentsTab[7][pos] = IDN;
-            CatchmentsTab[8][pos] = ID2N;
-            CatchmentsTab[9][pos] = ID3N;
-            Table[0].push_back(IDPlot);
-            Table[1].push_back(IDN);
-            Table[2].push_back(0);
-            Table[3].push_back(1);
-            Table[4].push_back(FIDTable[k]);
-            BigTable[0].push_back(IDPlot);
-            BigTable[1].push_back(IDN);
-            BigTable[2].push_back(0);
-            BigTable[3].push_back(1);
-            BigTable[4].push_back(FIDTable[k]);
+            if (CatchmentsTable[7][FIDTable[k]] == 0)
+            {
+              CatchmentsTable[7][FIDTable[k]] = IDN;
+              CatchmentsTable[8][FIDTable[k]] = ID2N;
+              CatchmentsTable[9][FIDTable[k]] = ID3N;
+              Table[0].push_back(IDPlot);
+              Table[1].push_back(IDN);
+              Table[2].push_back(0);
+              Table[3].push_back(1);
+              Table[4].push_back(FIDTable[k]);
+              BigTable[0].push_back(IDPlot);
+              BigTable[1].push_back(IDN);
+              BigTable[2].push_back(0);
+              BigTable[3].push_back(1);
+              BigTable[4].push_back(FIDTable[k]);
+            }
+
           }
           FIDTable.clear();
         }
@@ -1800,7 +1793,7 @@ void LandProcessor::createSRFandLNR()
           DataSource->ReleaseResultSet(SQLLayer);
         }
       }
-      i = i+1;
+      i += 1;
     }
     IDMax = Table[1].back();
     Table[0].clear();
@@ -1808,20 +1801,20 @@ void LandProcessor::createSRFandLNR()
     Table[2].clear();
     Table[3].clear();
     Table[4].clear();
-    for (int j = 0; j < CatchmentsTab[0].size(); j++)
+    for (int j = 0; j < CatchmentsTable[0].size(); j++)
     {
-      FID = CatchmentsTab[0][j];
-      IDN = CatchmentsTab[7][j];
-      IDPlot = CatchmentsTab[2][j];
-      IDPlot2 = CatchmentsTab[4][j];
+      FID = CatchmentsTable[0][j];
+      IDN = CatchmentsTable[7][j];
+      IDPlot = CatchmentsTable[2][j];
+      IDPlot2 = CatchmentsTable[4][j];
       if (IDPlot2 == 0 and IDN == 0)
       {
         if (std::find(Table[0].begin(), Table[0].end(), IDPlot) == Table[0].end())
         {
           IDN = IDMax+1;
-          CatchmentsTab[7][j] = IDN;
-          CatchmentsTab[8][j] = 1;
-          CatchmentsTab[9][j] = 1;
+          CatchmentsTable[7][j] = IDN;
+          CatchmentsTable[8][j] = 1;
+          CatchmentsTable[9][j] = 1;
           Table[0].push_back(IDPlot);
           Table[1].push_back(IDMax+1);
           Table[2].push_back(0);
@@ -1839,32 +1832,32 @@ void LandProcessor::createSRFandLNR()
 
   FIDTable.clear();
 
-  for (int i = 0; i < CatchmentsTab[0].size(); i++)
+  for (int i = 0; i < CatchmentsTable[0].size(); i++)
   {
-    IDCat2 = CatchmentsTab[3][i];
-    ID2N = CatchmentsTab[8][i];
+    IDCat2 = CatchmentsTable[3][i];
+    ID2N = CatchmentsTable[8][i];
     if (ID2N == 0)
     {
-      for (int j = 0; j < CatchmentsTab[0].size(); j++)
+      for (int j = 0; j < CatchmentsTable[0].size(); j++)
       {
-        if (CatchmentsTab[1][j] == IDCat2 and CatchmentsTab[7][j] != 0)
+        if (CatchmentsTable[1][j] == IDCat2 and CatchmentsTable[7][j] != 0)
         {
-          CatchmentsTab[8][i] = CatchmentsTab[7][j];
-          CatchmentsTab[9][i] = CatchmentsTab[8][j];
+          CatchmentsTable[8][i] = CatchmentsTable[7][j];
+          CatchmentsTable[9][i] = CatchmentsTable[8][j];
         }
       }
     }
   }
 
-  // =========================================================================================
+  // =======================================================================================
   // Setting the rest of the catchments with ID, ID2 and ID3 using the same principal as above
-  // =========================================================================================
+  // =======================================================================================
 
   N = 0;
 
-  for (int i = 0; i < CatchmentsTab[0].size(); i++)
+  for (int i = 0; i < CatchmentsTable[0].size(); i++)
   {
-    if (CatchmentsTab[7][i] == 0)
+    if (CatchmentsTable[7][i] == 0)
     {
       N += 1;
     }
@@ -1877,19 +1870,19 @@ void LandProcessor::createSRFandLNR()
     Table[2].clear();
     Table[3].clear();
     Table[4].clear();
-    for (int i = 0; i < CatchmentsTab[0].size(); i++)
+    for (int i = 0; i < CatchmentsTable[0].size(); i++)
     {
-      FID = CatchmentsTab[0][i];
-      IDPlot = CatchmentsTab[2][i];
-      IDN = CatchmentsTab[7][i];
-      IDPlot2 = CatchmentsTab[4][i];
-      ID2N = CatchmentsTab[8][i];
+      FID = CatchmentsTable[0][i];
+      IDPlot = CatchmentsTable[2][i];
+      IDN = CatchmentsTable[7][i];
+      IDPlot2 = CatchmentsTable[4][i];
+      ID2N = CatchmentsTable[8][i];
       if (IDN == 0 and ID2N != 0)
       {
         if (std::find(Table[0].begin(), Table[0].end(), IDPlot) == Table[0].end() and
             std::find(BigTable[0].begin(), BigTable[0].end(), IDPlot) == BigTable[0].end())
         {
-          CatchmentsTab[7][i] = 1;
+          CatchmentsTable[7][i] = 1;
           Table[0].push_back(IDPlot);
           Table[1].push_back(1);
           Table[2].push_back(IDPlot2);
@@ -1912,7 +1905,7 @@ void LandProcessor::createSRFandLNR()
               IDMax = BigTable[1][j];
             }
           }
-          CatchmentsTab[7][i] = IDMax+1;
+          CatchmentsTable[7][i] = IDMax+1;
           Table[0].push_back(IDPlot);
           Table[1].push_back(IDMax+1);
           Table[2].push_back(IDPlot2);
@@ -1933,42 +1926,40 @@ void LandProcessor::createSRFandLNR()
       {
         if (Table[0][i] != 0)
         {
-          FID = CatchmentsTab[0][Table[4][i]];
-          IDPlot = CatchmentsTab[2][Table[4][i]];
-          IDN = CatchmentsTab[7][Table[4][i]];
-          IDPlot2 = CatchmentsTab[4][Table[4][i]];
-          ID2N = CatchmentsTab[8][Table[4][i]];
-          ID3N = CatchmentsTab[9][Table[4][i]];
+          FID = CatchmentsTable[0][Table[4][i]];
+          IDPlot = CatchmentsTable[2][Table[4][i]];
+          IDN = CatchmentsTable[7][Table[4][i]];
+          IDPlot2 = CatchmentsTable[4][Table[4][i]];
+          ID2N = CatchmentsTable[8][Table[4][i]];
+          ID3N = CatchmentsTable[9][Table[4][i]];
           m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputCatchmentsGroupedVectorFile.substr(0, m_OutputCatchmentsGroupedVectorFile.find(".")) + " "
-              "WHERE "
+              "WHERE IDPlot == " + std::to_string(IDPlot) + " AND IDPlot2 == " + std::to_string(IDPlot2) + " AND "
               "ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + m_OutputCatchmentsGroupedVectorFile.substr(0, m_OutputCatchmentsGroupedVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FID) + "))) > 0";
           SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
           if (SQLLayer->GetFeatureCount() != 0)
           {
             for (int j = 0; j < SQLLayer->GetFeatureCount(); j++)
             {
-              if (CatchmentsTab[7][SQLLayer->GetFeature(j)->GetFieldAsInteger("RID")] == 0 and
-                  CatchmentsTab[2][SQLLayer->GetFeature(j)->GetFieldAsInteger("RID")] == IDPlot and
-                  CatchmentsTab[8][SQLLayer->GetFeature(j)->GetFieldAsInteger("RID")] == ID2N and
-                  CatchmentsTab[4][SQLLayer->GetFeature(j)->GetFieldAsInteger("RID")] == IDPlot2)
-              {
-                FIDTable.push_back(SQLLayer->GetFeature(j)->GetFieldAsInteger("RID"));
-              }
+              FIDTable.push_back(SQLLayer->GetFeature(j)->GetFieldAsInteger("RID"));
             }
             DataSource->ReleaseResultSet(SQLLayer);
             for (int k = 0; k < FIDTable.size(); k++)
             {
-              CatchmentsTab[7][FIDTable[k]] = IDN;
-              Table[0].push_back(IDPlot);
-              Table[1].push_back(IDN);
-              Table[2].push_back(IDPlot2);
-              Table[3].push_back(ID2N);
-              Table[4].push_back(FIDTable[k]);
-              BigTable[0].push_back(IDPlot);
-              BigTable[1].push_back(IDN);
-              BigTable[2].push_back(IDPlot2);
-              BigTable[3].push_back(ID2N);
-              BigTable[4].push_back(FIDTable[k]);
+              if (CatchmentsTable[7][FIDTable[k]] == 0 and
+                  CatchmentsTable[8][FIDTable[k]] == ID2N)
+              {
+                CatchmentsTable[7][FIDTable[k]] = IDN;
+                Table[0].push_back(IDPlot);
+                Table[1].push_back(IDN);
+                Table[2].push_back(IDPlot2);
+                Table[3].push_back(ID2N);
+                Table[4].push_back(FIDTable[k]);
+                BigTable[0].push_back(IDPlot);
+                BigTable[1].push_back(IDN);
+                BigTable[2].push_back(IDPlot2);
+                BigTable[3].push_back(ID2N);
+                BigTable[4].push_back(FIDTable[k]);
+              }
             }
             FIDTable.clear();
           }
@@ -1977,20 +1968,20 @@ void LandProcessor::createSRFandLNR()
             DataSource->ReleaseResultSet(SQLLayer);
           }
         }
-        i = i+1;
+        i += 1;
       }
       Table[0].clear();
       Table[1].clear();
       Table[2].clear();
       Table[3].clear();
       Table[4].clear();
-      for (int j = 0; j < CatchmentsTab[0].size(); j++)
+      for (int j = 0; j < CatchmentsTable[0].size(); j++)
       {
-        FID = CatchmentsTab[0][j];
-        IDPlot = CatchmentsTab[2][j];
-        IDN = CatchmentsTab[7][j];
-        IDPlot2 = CatchmentsTab[4][j];
-        ID2N = CatchmentsTab[8][j];
+        FID = CatchmentsTable[0][j];
+        IDPlot = CatchmentsTable[2][j];
+        IDN = CatchmentsTable[7][j];
+        IDPlot2 = CatchmentsTable[4][j];
+        ID2N = CatchmentsTable[8][j];
         if (IDN == 0 and ID2N != 0)
         {
           if (std::find(Table[0].begin(), Table[0].end(), IDPlot) == Table[0].end())
@@ -2003,7 +1994,7 @@ void LandProcessor::createSRFandLNR()
                 IDMax = BigTable[1][k];
               }
             }
-            CatchmentsTab[7][j] = IDMax+1;
+            CatchmentsTable[7][j] = IDMax+1;
             Table[0].push_back(IDPlot);
             Table[1].push_back(IDMax+1);
             Table[2].push_back(IDPlot2);
@@ -2017,27 +2008,27 @@ void LandProcessor::createSRFandLNR()
           }
         }
       }
-      for (int i = 0; i < CatchmentsTab[0].size(); i++)
+      for (int i = 0; i < CatchmentsTable[0].size(); i++)
       {
-        IDCat2 = CatchmentsTab[3][i];
-        ID2N = CatchmentsTab[8][i];
+        IDCat2 = CatchmentsTable[3][i];
+        ID2N = CatchmentsTable[8][i];
         if (ID2N == 0)
         {
-          for (int j = 0; j < CatchmentsTab[0].size(); j++)
+          for (int j = 0; j < CatchmentsTable[0].size(); j++)
           {
-            if (CatchmentsTab[1][j] == IDCat2 and CatchmentsTab[7][j] != 0)
+            if (CatchmentsTable[1][j] == IDCat2 and CatchmentsTable[7][j] != 0)
             {
-              CatchmentsTab[8][i] = CatchmentsTab[7][j];
-              CatchmentsTab[9][i] = CatchmentsTab[8][j];
+              CatchmentsTable[8][i] = CatchmentsTable[7][j];
+              CatchmentsTable[9][i] = CatchmentsTable[8][j];
             }
           }
         }
       }
     }
     N = 0;
-    for (int i = 0; i < CatchmentsTab[0].size(); i++)
+    for (int i = 0; i < CatchmentsTable[0].size(); i++)
     {
-      if (CatchmentsTab[7][i] == 0)
+      if (CatchmentsTable[7][i] == 0)
       {
         N += 1;
       }
@@ -2060,15 +2051,15 @@ void LandProcessor::createSRFandLNR()
   Catchments = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputCatchmentsGroupedVectorFile).c_str(), TRUE );
   CatchmentsLayer = Catchments->GetLayer(0);
 
-  for (int i = 0; i < CatchmentsTab[0].size(); i++)
+  for (int i = 0; i < CatchmentsTable[0].size(); i++)
   {
-    IDPlot = CatchmentsTab[2][i];
-    IDPlot2 = CatchmentsTab[4][i];
-    IDPlot3 = CatchmentsTab[6][i];
-    IDN = CatchmentsTab[7][i];
-    ID2N = CatchmentsTab[8][i];
-    ID3N = CatchmentsTab[9][i];
-    CatchmentsFeature = CatchmentsLayer->GetFeature(CatchmentsTab[0][i]);
+    IDPlot = CatchmentsTable[2][i];
+    IDPlot2 = CatchmentsTable[4][i];
+    IDPlot3 = CatchmentsTable[6][i];
+    IDN = CatchmentsTable[7][i];
+    ID2N = CatchmentsTable[8][i];
+    ID3N = CatchmentsTable[9][i];
+    CatchmentsFeature = CatchmentsLayer->GetFeature(CatchmentsTable[0][i]);
     IDNew = std::to_string(IDPlot)+"N"+std::to_string(IDN);
     ID2New = std::to_string(IDPlot2)+"N"+std::to_string(ID2N);
     ID3New = std::to_string(IDPlot3)+"N"+std::to_string(ID3N);
@@ -2080,22 +2071,22 @@ void LandProcessor::createSRFandLNR()
 
   OGRDataSource::DestroyDataSource(Catchments);
 
-  CatchmentsTab[0].clear();
-  CatchmentsTab[1].clear();
-  CatchmentsTab[2].clear();
-  CatchmentsTab[3].clear();
-  CatchmentsTab[4].clear();
-  CatchmentsTab[5].clear();
-  CatchmentsTab[6].clear();
-  CatchmentsTab[7].clear();
-  CatchmentsTab[8].clear();
-  CatchmentsTab[9].clear();
+  CatchmentsTable[0].clear();
+  CatchmentsTable[1].clear();
+  CatchmentsTable[2].clear();
+  CatchmentsTable[3].clear();
+  CatchmentsTable[4].clear();
+  CatchmentsTable[5].clear();
+  CatchmentsTable[6].clear();
+  CatchmentsTable[7].clear();
+  CatchmentsTable[8].clear();
+  CatchmentsTable[9].clear();
 
   // ======================================================================
   //  Regrouping catchments that have the same attributes into new entities
   // ======================================================================
 
-  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputEntitiesVectorFile).c_str()))
+  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputEntitiesVectorFile)))
   {
     mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputEntitiesVectorFile).c_str());
   }
@@ -2123,9 +2114,9 @@ void LandProcessor::createSRFandLNR()
 
   for(int i = 0; i < SQLLayer->GetFeatureCount(); i++)
   {
-    if (std::find(IDPlotLargeTab.begin(), IDPlotLargeTab.end(), SQLLayer->GetFeature(i)->GetFieldAsInteger("IDPlot")) == IDPlotLargeTab.end())
+    if (std::find(IDPlotLargeTable.begin(), IDPlotLargeTable.end(), SQLLayer->GetFeature(i)->GetFieldAsInteger("IDPlot")) == IDPlotLargeTable.end())
     {
-      IDPlotLargeTab.push_back(SQLLayer->GetFeature(i)->GetFieldAsInteger("IDPlot"));
+      IDPlotLargeTable.push_back(SQLLayer->GetFeature(i)->GetFieldAsInteger("IDPlot"));
     }
   }
 
@@ -2135,52 +2126,52 @@ void LandProcessor::createSRFandLNR()
 
   for(int i = 0; i < SQLLayer->GetFeatureCount(); i++)
   {
-    if (std::find(IDPlotLargeTab.begin(), IDPlotLargeTab.end(), SQLLayer->GetFeature(i)->GetFieldAsInteger("IDPlot")) == IDPlotLargeTab.end() and std::find(IDPlotAllSmallTab.begin(), IDPlotAllSmallTab.end(), SQLLayer->GetFeature(i)->GetFieldAsInteger("IDPlot")) == IDPlotAllSmallTab.end())
+    if (std::find(IDPlotLargeTable.begin(), IDPlotLargeTable.end(), SQLLayer->GetFeature(i)->GetFieldAsInteger("IDPlot")) == IDPlotLargeTable.end() and std::find(IDPlotAllSmallTable.begin(), IDPlotAllSmallTable.end(), SQLLayer->GetFeature(i)->GetFieldAsInteger("IDPlot")) == IDPlotAllSmallTable.end())
     {
-      IDPlotAllSmallTab.push_back(SQLLayer->GetFeature(i)->GetFieldAsInteger("IDPlot"));
+      IDPlotAllSmallTable.push_back(SQLLayer->GetFeature(i)->GetFieldAsInteger("IDPlot"));
     }
   }
 
   DataSource->ReleaseResultSet(SQLLayer);
 
-  IDNewTab.clear();
-  ID2NewTab.clear();
-  ID3NewTab.clear();
-  IDPlot2NewTab.clear();
-  IDPlot3NewTab.clear();
+  IDNewTable.clear();
+  ID2NewTable.clear();
+  ID3NewTable.clear();
+  IDPlot2NewTable.clear();
+  IDPlot3NewTable.clear();
 
-  if (IDPlotAllSmallTab.size() != 0)
+  if (IDPlotAllSmallTable.size() != 0)
   {
-    for (int i = 0; i < IDPlotAllSmallTab.size(); i++)
+    for (int i = 0; i < IDPlotAllSmallTable.size(); i++)
     {
-      m_SQLRequest = "SELECT IDPlot, ID, IDPlot2, ID2, IDPlot3, ID3 FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE IDPlot == " + std::to_string(IDPlotAllSmallTab[i]) + " "
+      m_SQLRequest = "SELECT IDPlot, ID, IDPlot2, ID2, IDPlot3, ID3 FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE IDPlot == " + std::to_string(IDPlotAllSmallTable[i]) + " "
           "AND IDPlot != IDPlot3 ORDER BY ST_Area(geometry) DESC";
       SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
       if (SQLLayer->GetFeatureCount() != 0)
       {
-        IDNewTab.push_back(SQLLayer->GetFeature(0)->GetFieldAsString("ID"));
-        IDPlot2NewTab.push_back(SQLLayer->GetFeature(0)->GetFieldAsInteger("IDPlot2"));
-        ID2NewTab.push_back(SQLLayer->GetFeature(0)->GetFieldAsString("ID2"));
-        IDPlot3NewTab.push_back(SQLLayer->GetFeature(0)->GetFieldAsInteger("IDPlot3"));
-        ID3NewTab.push_back(SQLLayer->GetFeature(0)->GetFieldAsString("ID3"));
+        IDNewTable.push_back(SQLLayer->GetFeature(0)->GetFieldAsString("ID"));
+        IDPlot2NewTable.push_back(SQLLayer->GetFeature(0)->GetFieldAsInteger("IDPlot2"));
+        ID2NewTable.push_back(SQLLayer->GetFeature(0)->GetFieldAsString("ID2"));
+        IDPlot3NewTable.push_back(SQLLayer->GetFeature(0)->GetFieldAsInteger("IDPlot3"));
+        ID3NewTable.push_back(SQLLayer->GetFeature(0)->GetFieldAsString("ID3"));
       }
       DataSource->ReleaseResultSet(SQLLayer);
     }
     Entities = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
     EntitiesLayer = Entities->GetLayer(0);
     FeatureDefn = EntitiesLayer->GetLayerDefn();
-    IndexToRemove.clear();
-    for (int i = 0; i < IDPlotAllSmallTab.size(); i++)
+    FIDToRemoveTable.clear();
+    for (int i = 0; i < IDPlotAllSmallTable.size(); i++)
     {
       NewGeometry = nullptr;
-      m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE IDPlot == " + std::to_string(IDPlotAllSmallTab[i]) + " ORDER BY ST_Area(geometry) DESC";
+      m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE IDPlot == " + std::to_string(IDPlotAllSmallTable[i]) + " ORDER BY ST_Area(geometry) DESC";
       SQLLayer = Entities->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
-      IndexToRemove.clear();
+      FIDToRemoveTable.clear();
       for (int j = 0; j < SQLLayer->GetFeatureCount(); j++)
       {
         SQLFeature = SQLLayer->GetFeature(j);
         SQLGeometry = SQLFeature->GetGeometryRef();
-        IndexToRemove.push_back(SQLFeature->GetFieldAsInteger("RID"));
+        FIDToRemoveTable.push_back(SQLFeature->GetFieldAsInteger("RID"));
         if (NewGeometry == nullptr)
         {
           NewGeometry = SQLGeometry;
@@ -2192,21 +2183,21 @@ void LandProcessor::createSRFandLNR()
       }
       Entities->ReleaseResultSet(SQLLayer);
       EntitiesLayer = Entities->GetLayer(0);
-      for (int j = 0; j < IndexToRemove.size(); j++)
+      for (int j = 0; j < FIDToRemoveTable.size(); j++)
       {
-        EntitiesLayer->DeleteFeature(IndexToRemove[j]);
+        EntitiesLayer->DeleteFeature(FIDToRemoveTable[j]);
       }
       m_SQLRequest = "REPACK " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find("."));
       Entities->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
       EntitiesLayer->SyncToDisk();
-      IndexToRemove.clear();
+      FIDToRemoveTable.clear();
       NewFeature = OGRFeature::CreateFeature(FeatureDefn);
-      NewFeature->SetField("IDPlot", IDPlotAllSmallTab[i]);
-      NewFeature->SetField("ID", IDNewTab[i].c_str());
-      NewFeature->SetField("IDPlot2", IDPlot2NewTab[i]);
-      NewFeature->SetField("ID2", ID2NewTab[i].c_str());
-      NewFeature->SetField("IDPlot3", IDPlot3NewTab[i]);
-      NewFeature->SetField("ID3", ID3NewTab[i].c_str());
+      NewFeature->SetField("IDPlot", IDPlotAllSmallTable[i]);
+      NewFeature->SetField("ID", IDNewTable[i].c_str());
+      NewFeature->SetField("IDPlot2", IDPlot2NewTable[i]);
+      NewFeature->SetField("ID2", ID2NewTable[i].c_str());
+      NewFeature->SetField("IDPlot3", IDPlot3NewTable[i]);
+      NewFeature->SetField("ID3", ID3NewTable[i].c_str());
       NewFeature->SetGeometry(NewGeometry);
       EntitiesLayer->CreateFeature(NewFeature);
       EntitiesLayer->SyncToDisk();
@@ -2217,12 +2208,12 @@ void LandProcessor::createSRFandLNR()
     EntitiesLayer->ResetReading();
     while ((EntitiesFeature = EntitiesLayer->GetNextFeature()) != nullptr)
     {
-      if (std::find(IDPlotAllSmallTab.begin(), IDPlotAllSmallTab.end(), EntitiesFeature->GetFieldAsInteger("IDPlot2")) != IDPlotAllSmallTab.end())
+      if (std::find(IDPlotAllSmallTable.begin(), IDPlotAllSmallTable.end(), EntitiesFeature->GetFieldAsInteger("IDPlot2")) != IDPlotAllSmallTable.end())
       {
-        pos = std::find(IDPlotAllSmallTab.begin(), IDPlotAllSmallTab.end(), EntitiesFeature->GetFieldAsInteger("IDPlot2")) - IDPlotAllSmallTab.begin();
-        EntitiesFeature->SetField("ID2", IDNewTab[pos].c_str());
-        EntitiesFeature->SetField("IDPlot3", IDPlot2NewTab[pos]);
-        EntitiesFeature->SetField("ID3", ID2NewTab[pos].c_str());
+        pos = std::find(IDPlotAllSmallTable.begin(), IDPlotAllSmallTable.end(), EntitiesFeature->GetFieldAsInteger("IDPlot2")) - IDPlotAllSmallTable.begin();
+        EntitiesFeature->SetField("ID2", IDNewTable[pos].c_str());
+        EntitiesFeature->SetField("IDPlot3", IDPlot2NewTable[pos]);
+        EntitiesFeature->SetField("ID3", ID2NewTable[pos].c_str());
         EntitiesLayer->SetFeature(EntitiesFeature);
       }
     }
@@ -2231,10 +2222,10 @@ void LandProcessor::createSRFandLNR()
     EntitiesLayer->ResetReading();
     while ((EntitiesFeature = EntitiesLayer->GetNextFeature()) != nullptr)
     {
-      if (std::find(IDPlotAllSmallTab.begin(), IDPlotAllSmallTab.end(), EntitiesFeature->GetFieldAsInteger("IDPlot3")) != IDPlotAllSmallTab.end())
+      if (std::find(IDPlotAllSmallTable.begin(), IDPlotAllSmallTable.end(), EntitiesFeature->GetFieldAsInteger("IDPlot3")) != IDPlotAllSmallTable.end())
       {
-        pos = std::find(IDPlotAllSmallTab.begin(), IDPlotAllSmallTab.end(), EntitiesFeature->GetFieldAsInteger("IDPlot3")) - IDPlotAllSmallTab.begin();
-        EntitiesFeature->SetField("ID3", IDNewTab[pos].c_str());
+        pos = std::find(IDPlotAllSmallTable.begin(), IDPlotAllSmallTable.end(), EntitiesFeature->GetFieldAsInteger("IDPlot3")) - IDPlotAllSmallTable.begin();
+        EntitiesFeature->SetField("ID3", IDNewTable[pos].c_str());
         EntitiesLayer->SetFeature(EntitiesFeature);
       }
     }
@@ -2255,83 +2246,85 @@ void LandProcessor::createSRFandLNR()
 
   for(int i = 0; i < SQLLayer->GetFeatureCount(); i++)
   {
-    if (std::find(IDPlotLargeTab.begin(), IDPlotLargeTab.end(), SQLLayer->GetFeature(i)->GetFieldAsInteger("IDPlot")) != IDPlotLargeTab.end() and
-        std::find(IDPlotAllSmallTab.begin(), IDPlotAllSmallTab.end(), SQLLayer->GetFeature(i)->GetFieldAsInteger("IDPlot")) == IDPlotAllSmallTab.end())
+    if (std::find(IDPlotLargeTable.begin(), IDPlotLargeTable.end(), SQLLayer->GetFeature(i)->GetFieldAsInteger("IDPlot")) != IDPlotLargeTable.end() and
+        std::find(IDPlotAllSmallTable.begin(), IDPlotAllSmallTable.end(), SQLLayer->GetFeature(i)->GetFieldAsInteger("IDPlot")) == IDPlotAllSmallTable.end())
     {
-      FIDSmallTab.push_back(SQLLayer->GetFeature(i)->GetFieldAsInteger("RID"));
+      FIDSmallTable.push_back(SQLLayer->GetFeature(i)->GetFieldAsInteger("RID"));
     }
   }
 
   DataSource->ReleaseResultSet(SQLLayer);
   OGRDataSource::DestroyDataSource(DataSource);
 
-  IDOldTab.clear();
-  IDNewTab.clear();
-  ID2NewTab.clear();
-  IDPlotNewTab.clear();
-  IDPlot2NewTab.clear();
+  IDOldTable.clear();
+  IDNewTable.clear();
+  ID2NewTable.clear();
+  IDPlotNewTable.clear();
+  IDPlot2NewTable.clear();
+  IDPlot3NewTable.clear();
 
-  FeaturesToDelete = FIDSmallTab;
+  FeaturesToDeleteTable = FIDSmallTable;
   Entities = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
   EntitiesLayer = Entities->GetLayer(0);
 
-  while(FIDSmallTab.size() != 0)
+  while(FIDSmallTable.size() != 0)
   {
-    Beginning = FIDSmallTab.size();
-    for (int i = 0; i < FIDSmallTab.size(); i++)
+    Beginning = FIDSmallTable.size();
+    for (int i = 0; i < FIDSmallTable.size(); i++)
     {
       DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
-      EntitiesFeature = EntitiesLayer->GetFeature(FIDSmallTab[i]);
+      EntitiesFeature = EntitiesLayer->GetFeature(FIDSmallTable[i]);
       ID = EntitiesFeature->GetFieldAsString("ID");
       EntitiesGeometry = EntitiesFeature->GetGeometryRef();
       IDPlot = EntitiesFeature->GetFieldAsInteger("IDPlot");
       m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE "
           "IDPlot == " + std::to_string(IDPlot) + " AND ID3 != " + m_QMark + ID + m_QMark + " AND "
           "ST_Area(geometry) > " + std::to_string(m_MinEntSize) + " AND "
-          "ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSmallTab[i])+ "))) > 0 ORDER BY ST_Area(geometry) DESC";
+          "ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSmallTable[i])+ "))) > 0 "
+          "ORDER BY ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSmallTable[i])+ "))) DESC, ST_Area(geometry) DESC";
       SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
       if (SQLLayer->GetFeatureCount() != 0)
       {
         SQLFeature = SQLLayer->GetFeature(0);
         FID = SQLFeature->GetFieldAsInteger("RID");
-        IDOldTab.push_back(EntitiesFeature->GetFieldAsString("ID"));
-        IDNewTab.push_back(SQLFeature->GetFieldAsString("ID"));
-        ID2NewTab.push_back(SQLFeature->GetFieldAsString("ID2"));
-        IDPlotNewTab.push_back(SQLFeature->GetFieldAsInteger("IDPlot"));
-        IDPlot2NewTab.push_back(SQLFeature->GetFieldAsInteger("IDPlot2"));
+        IDOldTable.push_back(EntitiesFeature->GetFieldAsString("ID"));
+        IDNewTable.push_back(SQLFeature->GetFieldAsString("ID"));
+        ID2NewTable.push_back(SQLFeature->GetFieldAsString("ID2"));
+        IDPlotNewTable.push_back(SQLFeature->GetFieldAsInteger("IDPlot"));
+        IDPlot2NewTable.push_back(SQLFeature->GetFieldAsInteger("IDPlot2"));
         AggregatingFeature = EntitiesLayer->GetFeature(FID);
         AggregatingGeometry = AggregatingFeature->GetGeometryRef();
         AggregatingGeometry = AggregatingGeometry->Union(EntitiesGeometry);
         AggregatingFeature->SetGeometry(AggregatingGeometry);
         EntitiesLayer->SetFeature(AggregatingFeature);
         EntitiesLayer->SyncToDisk();
-        IndexToRemove.push_back(FIDSmallTab[i]);
+        FIDToRemoveTable.push_back(FIDSmallTable[i]);
         EntitiesFeature = nullptr;
       }
       DataSource->ReleaseResultSet(SQLLayer);
       OGRDataSource::DestroyDataSource(DataSource);
     }
-    for (int k = 0; k < IndexToRemove.size(); k++)
+    for (int k = 0; k < FIDToRemoveTable.size(); k++)
     {
-      if (std::find(FIDSmallTab.begin(), FIDSmallTab.end(), IndexToRemove[k]) != FIDSmallTab.end())
+      if (std::find(FIDSmallTable.begin(), FIDSmallTable.end(), FIDToRemoveTable[k]) != FIDSmallTable.end())
       {
-        pos = std::find(FIDSmallTab.begin(), FIDSmallTab.end(), IndexToRemove[k]) - FIDSmallTab.begin();
-        FIDSmallTab.erase(FIDSmallTab.begin()+pos);
+        pos = std::find(FIDSmallTable.begin(), FIDSmallTable.end(), FIDToRemoveTable[k]) - FIDSmallTable.begin();
+        FIDSmallTable.erase(FIDSmallTable.begin()+pos);
       }
     }
-    IndexToRemove.clear();
-    End = FIDSmallTab.size();
+    FIDToRemoveTable.clear();
+    End = FIDSmallTable.size();
     if (Beginning == End)
     {
       break;
     }
   }
 
-  for (int i = 0; i < FeaturesToDelete.size(); i++)
+  for (int i = 0; i < FeaturesToDeleteTable.size(); i++)
   {
-    if (std::find(FIDSmallTab.begin(), FIDSmallTab.end(), FeaturesToDelete[i]) == FIDSmallTab.end())
+    if (std::find(FIDSmallTable.begin(), FIDSmallTable.end(), FeaturesToDeleteTable[i]) == FIDSmallTable.end())
     {
-      EntitiesLayer->DeleteFeature(FeaturesToDelete[i]);
+      EntitiesLayer->DeleteFeature(FeaturesToDeleteTable[i]);
     }
   }
 
@@ -2344,12 +2337,12 @@ void LandProcessor::createSRFandLNR()
   while ((EntitiesFeature = EntitiesLayer->GetNextFeature()) != nullptr)
   {
     ID2 = EntitiesFeature->GetFieldAsString("ID2");
-    if (std::find(IDOldTab.begin(), IDOldTab.end(), ID2.c_str()) != IDOldTab.end())
+    if (std::find(IDOldTable.begin(), IDOldTable.end(), ID2.c_str()) != IDOldTable.end())
     {
-      pos = std::find(IDOldTab.begin(), IDOldTab.end(), ID2.c_str()) - IDOldTab.begin();
-      EntitiesFeature->SetField("ID2", IDNewTab[pos].c_str());
-      EntitiesFeature->SetField("IDPlot3", IDPlot2NewTab[pos]);
-      EntitiesFeature->SetField("ID3", ID2NewTab[pos].c_str());
+      pos = std::find(IDOldTable.begin(), IDOldTable.end(), ID2.c_str()) - IDOldTable.begin();
+      EntitiesFeature->SetField("ID2", IDNewTable[pos].c_str());
+      EntitiesFeature->SetField("IDPlot3", IDPlot2NewTable[pos]);
+      EntitiesFeature->SetField("ID3", ID2NewTable[pos].c_str());
       EntitiesLayer->SetFeature(EntitiesFeature);
     }
   }
@@ -2361,24 +2354,287 @@ void LandProcessor::createSRFandLNR()
   while ((EntitiesFeature = EntitiesLayer->GetNextFeature()) != nullptr)
   {
     ID3 = EntitiesFeature->GetFieldAsString("ID3");
-    if (std::find(IDOldTab.begin(), IDOldTab.end(), ID3.c_str()) != IDOldTab.end())
+    if (std::find(IDOldTable.begin(), IDOldTable.end(), ID3.c_str()) != IDOldTable.end())
     {
-      pos = std::find(IDOldTab.begin(), IDOldTab.end(), ID3.c_str()) - IDOldTab.begin();
-      EntitiesFeature->SetField("ID3", IDNewTab[pos].c_str());
+      pos = std::find(IDOldTable.begin(), IDOldTable.end(), ID3.c_str()) - IDOldTable.begin();
+      EntitiesFeature->SetField("ID3", IDNewTable[pos].c_str());
       EntitiesLayer->SetFeature(EntitiesFeature);
     }
   }
 
   OGRDataSource::DestroyDataSource(Entities);
 
-  IDNewTab.clear();
-  ID2NewTab.clear();
-  IDPlotNewTab.clear();
-  IDPlot2NewTab.clear();
-  IDOldTab.clear();
-  ID2OldTab.clear();
-  IDPlotOldTab.clear();
-  IDPlot2OldTab.clear();
+  IDNewTable.clear();
+  ID2NewTable.clear();
+  IDPlotNewTable.clear();
+  IDPlot2NewTable.clear();
+  IDOldTable.clear();
+
+  //=================================================================
+  // Regrouping entities that belong to the same plot, drain into the
+  // same entity and share the common border
+  //=================================================================
+
+  N = 1;
+
+  while (N != 0)
+  {
+    FIDToRemoveTable.clear();
+    IDOldTable.clear();
+    IDNewTable.clear();
+    IDPlotNewTable.clear();
+    Entities = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
+    EntitiesLayer = Entities->GetLayer(0);
+    EntitiesLayer->ResetReading();
+    DataSource  = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
+    NewGeometry = nullptr;
+    while((EntitiesFeature = EntitiesLayer->GetNextFeature()) != nullptr)
+    {
+      FID = EntitiesFeature->GetFID();
+      IDPlot = EntitiesFeature->GetFieldAsInteger("IDPlot");
+      ID = EntitiesFeature->GetFieldAsString("ID");
+      ID2 = EntitiesFeature->GetFieldAsString("ID2");
+      if (ID != "0N1" and std::find(FIDToRemoveTable.begin(), FIDToRemoveTable.end(), FID) == FIDToRemoveTable.end()
+          and std::find(IDPlotNewTable.begin(), IDPlotNewTable.end(), IDPlot) == IDPlotNewTable.end())
+      {
+        m_SQLRequest = "SELECT geometry, ROWID as RID, * FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE "
+            "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FID) + "))) > 0 AND "
+            "IDPlot == " + std::to_string(IDPlot) + " AND ID2 == " + m_QMark + ID2 + m_QMark + " AND "
+            "ROWID != " + std::to_string(FID) + " AND "
+            "ST_Touches("
+            "ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID2 + m_QMark + ")), "
+            "ST_Intersection((SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FID) + "),"
+            "(SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID2 + m_QMark + "))) "
+            "ORDER BY "
+            "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM "
+            "" + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE "
+            "ROWID == " + std::to_string(FID) + ")))";
+        SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
+        if (SQLLayer->GetFeatureCount() != 0)
+        {
+          NewGeometry = nullptr;
+          for (int j = 0; j < SQLLayer->GetFeatureCount(); j++)
+          {
+            if (std::find(FIDToRemoveTable.begin(), FIDToRemoveTable.end(), SQLLayer->GetFeature(j)->GetFieldAsInteger("RID")) == FIDToRemoveTable.end())
+            {
+              FIDToRemoveTable.push_back(SQLLayer->GetFeature(j)->GetFieldAsInteger("RID"));
+              IDOldTable.push_back(SQLLayer->GetFeature(j)->GetFieldAsString("ID"));
+              IDNewTable.push_back(ID.c_str());
+              IDPlotNewTable.push_back(IDPlot);
+              if (NewGeometry == nullptr)
+              {
+                NewGeometry = SQLLayer->GetFeature(j)->GetGeometryRef();
+              }
+              else
+              {
+                NewGeometry = NewGeometry->Union(SQLLayer->GetFeature(j)->GetGeometryRef());
+              }
+            }
+          }
+          if (NewGeometry != nullptr)
+          {
+            EntitiesGeometry = EntitiesFeature->GetGeometryRef();
+            EntitiesGeometry = EntitiesGeometry->Union(NewGeometry);
+            EntitiesFeature->SetGeometry(EntitiesGeometry);
+            EntitiesLayer->SetFeature(EntitiesFeature);
+          }
+        }
+        DataSource->ReleaseResultSet(SQLLayer);
+      }
+    }
+    OGRDataSource::DestroyDataSource(DataSource);
+    EntitiesLayer = Entities->GetLayer(0);
+    EntitiesLayer->ResetReading();
+    if (FIDToRemoveTable.size() != 0)
+    {
+      for (int i = 0; i < FIDToRemoveTable.size(); i++)
+      {
+        EntitiesLayer->DeleteFeature(FIDToRemoveTable[i]);
+      }
+    }
+    FIDToRemoveTable.clear();
+    m_SQLRequest = "REPACK " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find("."));
+    Entities->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
+    Entities->SyncToDisk();
+    OGRDataSource::DestroyDataSource(Entities);
+    Entities  = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
+    EntitiesLayer = Entities->GetLayer(0);
+    EntitiesLayer->ResetReading();
+    while((EntitiesFeature = EntitiesLayer->GetNextFeature()) != nullptr)
+    {
+      if (std::find(IDOldTable.begin(), IDOldTable.end(), EntitiesFeature->GetFieldAsString("ID2")) != IDOldTable.end())
+      {
+        pos = std::find(IDOldTable.begin(), IDOldTable.end(), EntitiesFeature->GetFieldAsString("ID2")) - IDOldTable.begin();
+        EntitiesFeature->SetField("ID2", IDNewTable[pos].c_str());
+        EntitiesFeature->SetField("IDPlot2", IDPlotNewTable[pos]);
+        EntitiesLayer->SetFeature(EntitiesFeature);
+      }
+    }
+    EntitiesLayer->SyncToDisk();
+    Entities->SyncToDisk();
+    EntitiesLayer = Entities->GetLayer(0);
+    EntitiesLayer->ResetReading();
+    while((EntitiesFeature = EntitiesLayer->GetNextFeature()) != nullptr)
+    {
+      if (std::find(IDOldTable.begin(), IDOldTable.end(), EntitiesFeature->GetFieldAsString("ID3")) != IDOldTable.end())
+      {
+        pos = std::find(IDOldTable.begin(), IDOldTable.end(), EntitiesFeature->GetFieldAsString("ID3")) - IDOldTable.begin();
+        EntitiesFeature->SetField("ID3", IDNewTable[pos].c_str());
+        EntitiesFeature->SetField("IDPlot3", IDPlotNewTable[pos]);
+        EntitiesLayer->SetFeature(EntitiesFeature);
+      }
+    }
+    EntitiesLayer->SyncToDisk();
+    Entities->SyncToDisk();
+    OGRDataSource::DestroyDataSource(Entities);
+    Entities = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
+    EntitiesLayer = Entities->GetLayer(0);
+    EntitiesLayer->ResetReading();
+    DataSource  = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
+    N = 0;
+    while((EntitiesFeature = EntitiesLayer->GetNextFeature()) != nullptr)
+    {
+      FID = EntitiesFeature->GetFID();
+      IDPlot = EntitiesFeature->GetFieldAsInteger("IDPlot");
+      ID = EntitiesFeature->GetFieldAsString("ID");
+      ID2 = EntitiesFeature->GetFieldAsString("ID2");
+      if (ID != "0N1")
+      {
+        m_SQLRequest = "SELECT geometry, ROWID as RID, * FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE "
+            "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FID) + "))) > 0 AND "
+            "IDPlot == " + std::to_string(IDPlot) + " AND ID2 == " + m_QMark + ID2 + m_QMark + " AND "
+            "ROWID != " + std::to_string(FID) + " AND "
+            "ST_Touches("
+            "ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID2 + m_QMark + ")), "
+            "ST_Intersection((SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FID) + "),"
+            "(SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID2 + m_QMark + "))) "
+            "ORDER BY "
+            "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM "
+            "" + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE "
+            "ROWID == " + std::to_string(FID) + ")))";
+        SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
+        if (SQLLayer->GetFeatureCount() != 0)
+        {
+          N += 1;
+        }
+        DataSource->ReleaseResultSet(SQLLayer);
+      }
+    }
+    OGRDataSource::DestroyDataSource(DataSource);
+    OGRDataSource::DestroyDataSource(Entities);
+  }
+
+  FIDToRemoveTable.clear();
+  IDOldTable.clear();
+  IDNewTable.clear();
+  IDPlotNewTable.clear();
+
+  // =========================================================================================
+  // Finding and aggregating entities that are "locked" inside a parcel
+  // =========================================================================================
+
+  FIDToRemoveTable.clear();
+
+  N = 1;
+
+  while (N != 0)
+  {
+    Entities = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
+    EntitiesLayer = Entities->GetLayer(0);
+    EntitiesLayer->ResetReading();
+    DataSource  = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
+    while((EntitiesFeature = EntitiesLayer->GetNextFeature()) != nullptr)
+    {
+      FID = EntitiesFeature->GetFID();
+      IDPlot = EntitiesFeature->GetFieldAsInteger("IDPlot");
+      ID = EntitiesFeature->GetFieldAsString("ID");
+      ID2 = EntitiesFeature->GetFieldAsString("ID2");
+      if (ID != "0N1" and ID2 != "0N1")
+      {
+        m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE "
+            "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
+            "ROWID != " + std::to_string(FID);
+        SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
+        if (SQLLayer->GetFeatureCount() <= 2)
+        {
+          DataSource->ReleaseResultSet(SQLLayer);
+          m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE "
+              "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
+              "IDPlot == " + std::to_string(IDPlot) + " AND ROWID != " + std::to_string(FID);
+          SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
+          if (SQLLayer->GetFeatureCount() != 0)
+          {
+            EntitiesGeometry = EntitiesFeature->GetGeometryRef();
+            AggregatingFeature = EntitiesLayer->GetFeature(SQLLayer->GetFeature(0)->GetFieldAsInteger("RID"));
+            AggregatingGeometry = AggregatingFeature->GetGeometryRef();
+            AggregatingGeometry = AggregatingGeometry->Union(EntitiesGeometry);
+            AggregatingFeature->SetGeometry(AggregatingGeometry);
+            EntitiesLayer->SetFeature(AggregatingFeature);
+            FIDToRemoveTable.push_back(FID);
+          }
+          DataSource->ReleaseResultSet(SQLLayer);
+        }
+        else
+        {
+          DataSource->ReleaseResultSet(SQLLayer);
+        }
+      }
+    }
+    OGRDataSource::DestroyDataSource(DataSource);
+    OGRDataSource::DestroyDataSource(Entities);
+    Entities = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
+    EntitiesLayer = Entities->GetLayer(0);
+    EntitiesLayer->ResetReading();
+    if (FIDToRemoveTable.size() != 0)
+    {
+      for (int i = 0; i < FIDToRemoveTable.size(); i++)
+      {
+        EntitiesLayer->DeleteFeature(FIDToRemoveTable[i]);
+      }
+    }
+    FIDToRemoveTable.clear();
+    m_SQLRequest = "REPACK " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find("."));
+    Entities->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
+    OGRDataSource::DestroyDataSource(Entities);
+    Entities = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
+    EntitiesLayer = Entities->GetLayer(0);
+    EntitiesLayer->ResetReading();
+    DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
+    N = 0;
+    while((EntitiesFeature = EntitiesLayer->GetNextFeature()) != nullptr)
+    {
+      FID = EntitiesFeature->GetFID();
+      IDPlot = EntitiesFeature->GetFieldAsInteger("IDPlot");
+      ID = EntitiesFeature->GetFieldAsString("ID");
+      ID2 = EntitiesFeature->GetFieldAsString("ID2");
+      if (ID != "0N1" and ID2 != "0N1")
+      {
+        m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE "
+            "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
+            "ROWID != " + std::to_string(FID);
+        SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
+        if (SQLLayer->GetFeatureCount() <= 2)
+        {
+          DataSource->ReleaseResultSet(SQLLayer);
+          m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE "
+              "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
+              "IDPlot == " + std::to_string(IDPlot) + " AND ROWID != " + std::to_string(FID);
+          SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
+          if (SQLLayer->GetFeatureCount() != 0)
+          {
+            N += 1;
+          }
+          DataSource->ReleaseResultSet(SQLLayer);
+        }
+        else
+        {
+          DataSource->ReleaseResultSet(SQLLayer);
+        }
+      }
+    }
+    OGRDataSource::DestroyDataSource(Entities);
+    OGRDataSource::DestroyDataSource(DataSource);
+  }
 
   // =====================================================================
   // Union with the original parcel vector layer
@@ -2405,24 +2661,24 @@ void LandProcessor::createSRFandLNR()
                                  {"snap", QString::fromStdString(m_SnapDistance)}},
                    {"--o"});
 
-  FieldNamesTab.clear();
+  FieldNamesTable.clear();
   FIDTable.clear();
 
-  FieldNamesTab = {m_IDFieldName,"IDPlot","ID","IDPlot2","ID2","IDPlot3","ID3"};
+  FieldNamesTable = {m_IDFieldName,"IDPlot","ID","IDPlot2","ID2","IDPlot3","ID3"};
 
   GRASS.appendTask("v.db.renamecolumn", {{"map", "union"},
-                                         {"column", QString::fromStdString("a_" + FieldNamesTab[0] + "," + FieldNamesTab[0])}});
+                                         {"column", QString::fromStdString("a_" + FieldNamesTable[0] + "," + FieldNamesTable[0])}});
 
-  for (int i = 1; i < FieldNamesTab.size(); i++)
+  for (int i = 1; i < FieldNamesTable.size(); i++)
   {
     GRASS.appendTask("v.db.renamecolumn", {{"map", "union"},
-                                           {"column", QString::fromStdString("b_" + FieldNamesTab[i] + "," + FieldNamesTab[i])}});
+                                           {"column", QString::fromStdString("b_" + FieldNamesTable[i] + "," + FieldNamesTable[i])}});
   }
 
   GRASS.appendTask("v.db.dropcolumn", {{"map", "union"},
                                        {"column", QString::fromStdString("a_cat,b_cat")}});
 
-  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str()))
+  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile)))
   {
     mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str());
   }
@@ -2502,30 +2758,27 @@ void LandProcessor::createSRFandLNR()
   UnionFeature = nullptr;
   UnionGeometry = nullptr;
 
-  IDPlotTab.clear();
-  MissingIDTab.clear();
-  FIDSliverTab.clear();
-
-  N = 0;
+  IDPlotTable.clear();
+  MissingIDTable.clear();
+  FIDSliverTable.clear();
 
   while ((UnionFeature = UnionLayer->GetNextFeature()) != nullptr)
   {
-    if (std::find(IDPlotTab.begin(), IDPlotTab.end(), UnionFeature->GetFieldAsInteger("IDPlot")) == IDPlotTab.end())
+    if (std::find(IDPlotTable.begin(), IDPlotTable.end(), UnionFeature->GetFieldAsInteger("IDPlot")) == IDPlotTable.end())
     {
-      IDPlotTab.push_back(UnionFeature->GetFieldAsInteger("IDPlot"));
+      IDPlotTable.push_back(UnionFeature->GetFieldAsInteger("IDPlot"));
     }
   }
 
   UnionLayer = Union->GetLayer(0);
   UnionLayer->ResetReading();
-  UnionFeature = nullptr;
 
   while ((UnionFeature = UnionLayer->GetNextFeature()) != nullptr)
   {
-    if (std::find(IDPlotTab.begin(), IDPlotTab.end(), UnionFeature->GetFieldAsInteger("IDPlot")) == IDPlotTab.end() and
-        std::find(MissingIDTab.begin(), MissingIDTab.end(), UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str())) == MissingIDTab.end())
+    if (std::find(IDPlotTable.begin(), IDPlotTable.end(), UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str())) == IDPlotTable.end() and
+        std::find(MissingIDTable.begin(), MissingIDTable.end(), UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str())) == MissingIDTable.end())
     {
-      MissingIDTab.push_back(UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str()));
+      MissingIDTable.push_back(UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str()));
     }
   }
 
@@ -2536,9 +2789,9 @@ void LandProcessor::createSRFandLNR()
   while ((UnionFeature = UnionLayer->GetNextFeature()) != nullptr)
   {
     if (UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str()) != UnionFeature->GetFieldAsInteger("IDPlot") and
-        std::find(MissingIDTab.begin(), MissingIDTab.end(), UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str())) == MissingIDTab.end())
+        std::find(MissingIDTable.begin(), MissingIDTable.end(), UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str())) == MissingIDTable.end())
     {
-      FIDSliverTab.push_back(UnionFeature->GetFID());
+      FIDSliverTable.push_back(UnionFeature->GetFID());
     }
   }
 
@@ -2550,23 +2803,23 @@ void LandProcessor::createSRFandLNR()
   // original parcel ID attribute is the same as IDPlot
   // ======================================================================================
 
-  IndexToRemove.clear();
+  FIDToRemoveTable.clear();
 
-  while (FIDSliverTab.size() != 0)
+  while (FIDSliverTable.size() != 0)
   {
     Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
     UnionLayer = Union->GetLayer(0);
-    for (int i = 0; i < FIDSliverTab.size(); i++)
+    for (int i = 0; i < FIDSliverTable.size(); i++)
     {
-      UnionFeature = UnionLayer->GetFeature(FIDSliverTab[i]);
+      UnionFeature = UnionLayer->GetFeature(FIDSliverTable[i]);
       UnionGeometry = UnionFeature->GetGeometryRef();
       DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
       AggregatingFeature = nullptr;
       AggregatingGeometry = nullptr;
       m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE " + m_IDFieldName + " == IDPlot "
           "AND " + m_IDFieldName + " == " + std::to_string(UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str())) + "  AND "
-          "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTab[i]) + "))) > 0 "
-          "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTab[i]) + "))) DESC";
+          "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) > 0 "
+          "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) DESC";
       SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
       if (SQLLayer->GetFeatureCount() > 1)
       {
@@ -2574,8 +2827,8 @@ void LandProcessor::createSRFandLNR()
         m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE " + m_IDFieldName + " == "
             "IDPlot AND " + m_IDFieldName + " == " + std::to_string(UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str())) + " AND "
             "ID2 == " + m_QMark + UnionFeature->GetFieldAsString("ID") + m_QMark + " AND "
-            "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTab[i]) + "))) > 0 "
-            "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTab[i]) + "))) DESC";
+            "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) > 0 "
+            "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) DESC";
         SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
         if (SQLLayer->GetFeatureCount() == 0)
         {
@@ -2583,8 +2836,8 @@ void LandProcessor::createSRFandLNR()
           m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE " + m_IDFieldName + " == IDPlot "
               "AND " + m_IDFieldName + " == " + std::to_string(UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str())) + " AND "
               "ID == " + m_QMark + UnionFeature->GetFieldAsString("ID2") + m_QMark + " AND "
-              "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTab[i]) + "))) > 0 "
-              "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTab[i]) + "))) DESC";
+              "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) > 0 "
+              "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) DESC";
           SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
           if (SQLLayer->GetFeatureCount() == 0)
           {
@@ -2592,16 +2845,16 @@ void LandProcessor::createSRFandLNR()
             m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE " + m_IDFieldName + " == IDPlot "
                 "AND " + m_IDFieldName + " == " + std::to_string(UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str())) + " AND "
                 "ID2 == " + m_QMark + UnionFeature->GetFieldAsString("ID2") + m_QMark + " AND "
-                "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTab[i]) + "))) > 0 "
-                "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTab[i]) + "))) DESC";
+                "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) > 0 "
+                "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) DESC";
             SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
             if (SQLLayer->GetFeatureCount() == 0)
             {
               DataSource->ReleaseResultSet(SQLLayer);
               m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE " + m_IDFieldName + " == IDPlot "
                   "AND " + m_IDFieldName + " == " + std::to_string(UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str())) + " AND "
-                  "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTab[i]) + "))) > 0 "
-                  "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTab[i]) + "))) DESC";
+                  "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) > 0 "
+                  "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) DESC";
               SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
               FID = SQLLayer->GetFeature(0)->GetFieldAsInteger("RID");
               DataSource->ReleaseResultSet(SQLLayer);
@@ -2610,7 +2863,7 @@ void LandProcessor::createSRFandLNR()
               AggregatingFeature->SetGeometry(AggregatingGeometry->Union(UnionGeometry));
               UnionLayer->SetFeature(AggregatingFeature);
               UnionLayer->SyncToDisk();
-              IndexToRemove.push_back(FIDSliverTab[i]);
+              FIDToRemoveTable.push_back(FIDSliverTable[i]);
             }
             else
             {
@@ -2621,7 +2874,7 @@ void LandProcessor::createSRFandLNR()
               AggregatingFeature->SetGeometry(AggregatingGeometry->Union(UnionGeometry));
               UnionLayer->SetFeature(AggregatingFeature);
               UnionLayer->SyncToDisk();
-              IndexToRemove.push_back(FIDSliverTab[i]);
+              FIDToRemoveTable.push_back(FIDSliverTable[i]);
             }
           }
           else
@@ -2633,7 +2886,7 @@ void LandProcessor::createSRFandLNR()
             AggregatingFeature->SetGeometry(AggregatingGeometry->Union(UnionGeometry));
             UnionLayer->SetFeature(AggregatingFeature);
             UnionLayer->SyncToDisk();
-            IndexToRemove.push_back(FIDSliverTab[i]);
+            FIDToRemoveTable.push_back(FIDSliverTable[i]);
           }
         }
         else
@@ -2645,7 +2898,7 @@ void LandProcessor::createSRFandLNR()
           AggregatingFeature->SetGeometry(AggregatingGeometry->Union(UnionGeometry));
           UnionLayer->SetFeature(AggregatingFeature);
           UnionLayer->SyncToDisk();
-          IndexToRemove.push_back(FIDSliverTab[i]);
+          FIDToRemoveTable.push_back(FIDSliverTable[i]);
         }
       }
       else if (SQLLayer->GetFeatureCount() == 1)
@@ -2657,7 +2910,7 @@ void LandProcessor::createSRFandLNR()
         AggregatingFeature->SetGeometry(AggregatingGeometry->Union(UnionGeometry));
         UnionLayer->SetFeature(AggregatingFeature);
         UnionLayer->SyncToDisk();
-        IndexToRemove.push_back(FIDSliverTab[i]);
+        FIDToRemoveTable.push_back(FIDSliverTable[i]);
       }
       else
       {
@@ -2665,14 +2918,14 @@ void LandProcessor::createSRFandLNR()
       }
       OGRDataSource::DestroyDataSource(DataSource);
     }
-    if (IndexToRemove.size() != 0)
+    if (FIDToRemoveTable.size() != 0)
     {
-      for (int i = 0; i < IndexToRemove.size(); i++)
+      for (int i = 0; i < FIDToRemoveTable.size(); i++)
       {
-        UnionLayer->DeleteFeature(IndexToRemove[i]);
+        UnionLayer->DeleteFeature(FIDToRemoveTable[i]);
       }
     }
-    IndexToRemove.clear();
+    FIDToRemoveTable.clear();
     m_SQLRequest = "REPACK " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find("."));
     Union->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
     OGRDataSource::DestroyDataSource(Union);
@@ -2680,12 +2933,12 @@ void LandProcessor::createSRFandLNR()
     UnionLayer = Union->GetLayer(0);
     UnionLayer->ResetReading();
     UnionFeature = nullptr;
-    FIDSliverTab.clear();
+    FIDSliverTable.clear();
     while ((UnionFeature = UnionLayer->GetNextFeature()) != nullptr)
     {
-      if (UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str()) != UnionFeature->GetFieldAsInteger("IDPlot") and std::find(MissingIDTab.begin(), MissingIDTab.end(), UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str())) == MissingIDTab.end())
+      if (UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str()) != UnionFeature->GetFieldAsInteger("IDPlot") and std::find(MissingIDTable.begin(), MissingIDTable.end(), UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str())) == MissingIDTable.end())
       {
-        FIDSliverTab.push_back(UnionFeature->GetFID());
+        FIDSliverTable.push_back(UnionFeature->GetFID());
       }
     }
     OGRDataSource::DestroyDataSource(Union);
@@ -2700,26 +2953,26 @@ void LandProcessor::createSRFandLNR()
   FeatureDefn = UnionLayer->GetLayerDefn();
   NewFeature = nullptr;
 
-  if (MissingIDTab.size() != 0)
+  if (MissingIDTable.size() != 0)
   {
-    for (int i = 0; i < MissingIDTab.size(); i++)
+    for (int i = 0; i < MissingIDTable.size(); i++)
     {
       SQLFeature = nullptr;
       SQLGeometry = nullptr;
       NewGeometry = nullptr;
-      m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE " + m_IDFieldName + " == " + std::to_string(MissingIDTab[i]) + " ORDER BY ST_Area(geometry) DESC";
+      m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE " + m_IDFieldName + " == " + std::to_string(MissingIDTable[i]) + " ORDER BY ST_Area(geometry) DESC";
       SQLLayer = Union->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
       IDField = SQLLayer->GetFeature(0)->GetFieldAsInteger(m_IDFieldName.c_str());
       IDPlot2 = SQLLayer->GetFeature(0)->GetFieldAsInteger("IDPlot2");
       ID2 = SQLLayer->GetFeature(0)->GetFieldAsString("ID2");
       IDPlot3 = SQLLayer->GetFeature(0)->GetFieldAsInteger("IDPlot3");
       ID3 = SQLLayer->GetFeature(0)->GetFieldAsString("ID3");
-      IndexToRemove.clear();
+      FIDToRemoveTable.clear();
       for(int j = 0; j < SQLLayer->GetFeatureCount(); j++)
       {
         SQLFeature = SQLLayer->GetFeature(j);
         SQLGeometry = SQLFeature->GetGeometryRef();
-        IndexToRemove.push_back(SQLFeature->GetFieldAsInteger("RID"));
+        FIDToRemoveTable.push_back(SQLFeature->GetFieldAsInteger("RID"));
         if (NewGeometry == nullptr)
         {
           NewGeometry = SQLGeometry;
@@ -2730,21 +2983,42 @@ void LandProcessor::createSRFandLNR()
         }
       }
       Union->ReleaseResultSet(SQLLayer);
-      IDNew = std::to_string(IDField) + "N1";
-      NewFeature = OGRFeature::CreateFeature(FeatureDefn);
-      NewFeature->SetField("OFLD_ID", IDField);
-      NewFeature->SetField("IDPlot", IDField);
-      NewFeature->SetField("ID", IDNew.c_str());
-      NewFeature->SetField("IDPlot2", IDPlot2);
-      NewFeature->SetField("ID2", ID2.c_str());
-      NewFeature->SetField("IDPlot3", IDPlot3);
-      NewFeature->SetField("ID3", ID3.c_str());
-      NewFeature->SetGeometry(NewGeometry);
-      UnionLayer->CreateFeature(NewFeature);
-      UnionLayer->SyncToDisk();
-      for (int k = 0; k < IndexToRemove.size(); k++)
+      if (NewGeometry->getGeometryType() == 6)
       {
-        UnionLayer->DeleteFeature(IndexToRemove[k]);
+        for (int k = 0; k < ((OGRMultiPolygon*) NewGeometry)->getNumGeometries(); k++)
+        {
+          IDNew = std::to_string(IDField) + "N" + std::to_string(k+1);
+          NewFeature = OGRFeature::CreateFeature(FeatureDefn);
+          NewFeature->SetField("OFLD_ID", IDField);
+          NewFeature->SetField("IDPlot", IDField);
+          NewFeature->SetField("ID", IDNew.c_str());
+          NewFeature->SetField("IDPlot2", IDPlot2);
+          NewFeature->SetField("ID2", ID2.c_str());
+          NewFeature->SetField("IDPlot3", IDPlot3);
+          NewFeature->SetField("ID3", ID3.c_str());
+          NewFeature->SetGeometry(((OGRMultiPolygon*) NewGeometry)->getGeometryRef(k));
+          UnionLayer->CreateFeature(NewFeature);
+          UnionLayer->SyncToDisk();
+        }
+      }
+      else if (NewGeometry->getGeometryType() == 3)
+      {
+        IDNew = std::to_string(IDField) + "N1";
+        NewFeature = OGRFeature::CreateFeature(FeatureDefn);
+        NewFeature->SetField("OFLD_ID", IDField);
+        NewFeature->SetField("IDPlot", IDField);
+        NewFeature->SetField("ID", IDNew.c_str());
+        NewFeature->SetField("IDPlot2", IDPlot2);
+        NewFeature->SetField("ID2", ID2.c_str());
+        NewFeature->SetField("IDPlot3", IDPlot3);
+        NewFeature->SetField("ID3", ID3.c_str());
+        NewFeature->SetGeometry(NewGeometry);
+        UnionLayer->CreateFeature(NewFeature);
+        UnionLayer->SyncToDisk();
+      }
+      for (int l = 0; l < FIDToRemoveTable.size(); l++)
+      {
+        UnionLayer->DeleteFeature(FIDToRemoveTable[l]);
       }
       m_SQLRequest = "REPACK " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find("."));
       Union->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
@@ -2754,10 +3028,10 @@ void LandProcessor::createSRFandLNR()
 
   OGRDataSource::DestroyDataSource(Union);
 
-  IDPlotTab.clear();
-  MissingIDTab.clear();
-  FIDSliverTab.clear();
-  IndexToRemove.clear();
+  IDPlotTable.clear();
+  MissingIDTable.clear();
+  FIDSliverTable.clear();
+  FIDToRemoveTable.clear();
 
   // ====================================================================================
   // Regrouping of those features that have the same attributes and share a common border
@@ -2774,7 +3048,7 @@ void LandProcessor::createSRFandLNR()
   SQLFeature = nullptr;
   SQLGeometry = nullptr;
 
-  IndexToRemove.clear();
+  FIDToRemoveTable.clear();
 
   while ((UnionFeature = UnionLayer->GetNextFeature()) != nullptr)
   {
@@ -2784,11 +3058,11 @@ void LandProcessor::createSRFandLNR()
     IDField = UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str());
     IDPlot = UnionFeature->GetFieldAsInteger("IDPlot");
     ID = UnionFeature->GetFieldAsString("ID");
-    if (std::find(IndexToRemove.begin(), IndexToRemove.end(), FID) == IndexToRemove.end())
+    if (std::find(FIDToRemoveTable.begin(), FIDToRemoveTable.end(), FID) == FIDToRemoveTable.end())
     {
       m_SQLRequest = "SELECT ROWID as RID, geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE " + m_IDFieldName + " == " + std::to_string(IDField) + " AND "
           "IDPlot == " + std::to_string(IDPlot) + " AND ID == " + m_QMark + ID + m_QMark + " AND "
-          "RID != " + std::to_string(FID) + " ORDER BY ST_Area(geometry)";
+          "RID != " + std::to_string(FID) + " ORDER BY ST_Area(geometry) DESC";
       SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
       if (SQLLayer->GetFeatureCount() != 0)
       {
@@ -2796,7 +3070,7 @@ void LandProcessor::createSRFandLNR()
         {
           SQLFeature = SQLLayer->GetFeature(i);
           SQLGeometry = SQLFeature->GetGeometryRef();
-          IndexToRemove.push_back(SQLFeature->GetFieldAsInteger("RID"));
+          FIDToRemoveTable.push_back(SQLFeature->GetFieldAsInteger("RID"));
           if (NewGeometry == nullptr)
           {
             NewGeometry = UnionGeometry->Union(SQLGeometry);
@@ -2820,18 +3094,238 @@ void LandProcessor::createSRFandLNR()
   UnionLayer = Union->GetLayer(0);
   UnionLayer->ResetReading();
 
-  if (IndexToRemove.size() != 0)
+  if (FIDToRemoveTable.size() != 0)
   {
-    for (int i = 0; i < IndexToRemove.size(); i++)
+    for (int i = 0; i < FIDToRemoveTable.size(); i++)
     {
-      UnionLayer->DeleteFeature(IndexToRemove[i]);
+      UnionLayer->DeleteFeature(FIDToRemoveTable[i]);
     }
   }
 
-  IndexToRemove.clear();
+  FIDToRemoveTable.clear();
   m_SQLRequest = "REPACK " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find("."));
   Union->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
   OGRDataSource::DestroyDataSource(Union);
+
+  // =======================================================================================
+  // In case 0N1 is of MULTIPOLYGON type, we separate it into POLYGONES, create new features
+  // for them and (except for the largest one) set attributes as those of the feature that it
+  // shares the longest boundary with
+  // =======================================================================================
+
+  Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+  UnionLayer = Union->GetLayer(0);
+  UnionLayer->ResetReading();
+  UnionFeature = nullptr;
+  UnionGeometry = nullptr;
+
+  NewGeometry = nullptr;
+
+  FIDToRemoveTable.clear();
+
+  while ((UnionFeature = UnionLayer->GetNextFeature()) != nullptr)
+  {
+    FID = UnionFeature->GetFID();
+    ID = UnionFeature->GetFieldAsString("ID");
+    UnionGeometry = UnionFeature->GetGeometryRef();
+    if (ID == "0N1" and UnionGeometry->getGeometryType() == 6)
+    {
+      for (int i = 0; i < ((OGRMultiPolygon *) UnionGeometry)->getNumGeometries(); i++)
+      {
+        NewGeometry = ((OGRMultiPolygon*) UnionGeometry)->getGeometryRef(i);
+        NewFeature = OGRFeature::CreateFeature(UnionLayer->GetLayerDefn());
+        NewFeature->SetField(m_IDFieldName.c_str(), 0);
+        NewFeature->SetField("IDPlot", 0);
+        NewFeature->SetField("ID", ID.c_str());
+        NewFeature->SetField("IDPlot2", 0);
+        NewFeature->SetField("ID2", ID.c_str());
+        NewFeature->SetField("IDPlot3", 0);
+        NewFeature->SetField("ID3", ID.c_str());
+        NewFeature->SetGeometry(NewGeometry);
+        UnionLayer->CreateFeature(NewFeature);
+      }
+      FIDToRemoveTable.push_back(FID);
+    }
+  }
+
+  UnionLayer->SyncToDisk();
+  UnionLayer = Union->GetLayer(0);
+  UnionLayer->ResetReading();
+
+  if (FIDToRemoveTable.size() != 0)
+  {
+    for (int i = 0; i < FIDToRemoveTable.size(); i++)
+    {
+      UnionLayer->DeleteFeature(FIDToRemoveTable[i]);
+    }
+  }
+
+  FIDToRemoveTable.clear();
+
+  m_SQLRequest = "REPACK " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find("."));
+  Union->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
+  OGRDataSource::DestroyDataSource(Union);
+
+  Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+  UnionLayer = Union->GetLayer(0);
+  UnionLayer->ResetReading();
+
+  DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+
+  m_SQLRequest = "SELECT ROWID as RID FROM "
+      "" + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " "
+      "WHERE ID == " + m_QMark + "0N1" + m_QMark + " ORDER BY ST_Area(geometry) DESC";
+  SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
+
+  if (SQLLayer->GetFeatureCount() > 1)
+  {
+    for (int i = 1; i < SQLLayer->GetFeatureCount(); i++)
+    {
+      FIDTable.push_back(SQLLayer->GetFeature(i)->GetFieldAsInteger("RID"));
+    }
+    DataSource->ReleaseResultSet(SQLLayer);
+    for (int j = 0; j < FIDTable.size(); j++)
+    {
+      m_SQLRequest = "SELECT * FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " "
+          "WHERE ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDTable[j]) + "))) > 0 "
+          "AND ID != " + m_QMark + "0N1" + m_QMark + " "
+          "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDTable[j]) + "))) DESC";
+      SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
+      if (SQLLayer->GetFeatureCount() != 0)
+      {
+        UnionFeature = UnionLayer->GetFeature(FIDTable[j]);
+        UnionFeature->SetField(m_IDFieldName.c_str(), SQLLayer->GetFeature(0)->GetFieldAsInteger(m_IDFieldName.c_str()));
+        UnionFeature->SetField("IDPlot", SQLLayer->GetFeature(0)->GetFieldAsInteger("IDPlot"));
+        UnionFeature->SetField("ID", SQLLayer->GetFeature(0)->GetFieldAsString("ID"));
+        UnionFeature->SetField("IDPlot2", SQLLayer->GetFeature(0)->GetFieldAsInteger("IDPlot2"));
+        UnionFeature->SetField("ID2", SQLLayer->GetFeature(0)->GetFieldAsString("ID2"));
+        UnionFeature->SetField("IDPlot3", SQLLayer->GetFeature(0)->GetFieldAsInteger("IDPlot3"));
+        UnionFeature->SetField("ID3", SQLLayer->GetFeature(0)->GetFieldAsString("ID3"));
+        UnionLayer->SetFeature(UnionFeature);
+      }
+      DataSource->ReleaseResultSet(SQLLayer);
+    }
+
+  }
+  else
+  {
+    DataSource->ReleaseResultSet(SQLLayer);
+  }
+
+  OGRDataSource::DestroyDataSource(Union);
+  OGRDataSource::DestroyDataSource(DataSource);
+
+  // =======================================================================================
+  // If entities of the MULTIPOLYGON type that do not touch each other were formed, we split
+  // them into separate entities of the POLYGON type
+  // =======================================================================================
+
+  Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+  UnionLayer = Union->GetLayer(0);
+  UnionLayer->ResetReading();
+
+  IDPlotIDMaxTable[0].clear();
+  IDPlotIDMaxTable[1].clear();
+
+  while((UnionFeature = UnionLayer->GetNextFeature()) != nullptr)
+  {
+    IDPlot = UnionFeature->GetFieldAsInteger("IDPlot");
+    ID = UnionFeature->GetFieldAsString("ID");
+    IDN = std::stoi(ID.substr(ID.find("N")+1, ID.length()-1));
+    if (std::find(IDPlotIDMaxTable[0].begin(), IDPlotIDMaxTable[0].end(), IDPlot) == IDPlotIDMaxTable[0].end())
+    {
+      IDPlotIDMaxTable[0].push_back(IDPlot);
+      IDPlotIDMaxTable[1].push_back(IDN);
+    }
+    else
+    {
+      pos = std::find(IDPlotIDMaxTable[0].begin(), IDPlotIDMaxTable[0].end(), IDPlot) - IDPlotIDMaxTable[0].begin();
+      if (IDPlotIDMaxTable[1][pos] < IDN)
+      {
+        IDPlotIDMaxTable[1][pos] = IDN;
+      }
+    }
+  }
+
+  UnionLayer = Union->GetLayer(0);
+  UnionLayer->ResetReading();
+
+  FIDToRemoveTable.clear();
+
+  while((UnionFeature = UnionLayer->GetNextFeature()) != nullptr)
+  {
+    if (UnionFeature->GetGeometryRef()->getGeometryType() == 6)
+    {
+      for (int i = 0; i < ((OGRMultiPolygon*)UnionFeature->GetGeometryRef())->getNumGeometries(); i++)
+      {
+        NewGeometry = ((OGRMultiPolygon*)UnionFeature->GetGeometryRef())->getGeometryRef(i);
+        UnionGeometry = nullptr;
+        for (int j = 0; j < ((OGRMultiPolygon*)UnionFeature->GetGeometryRef())->getNumGeometries(); j++)
+        {
+          if (j != i)
+          {
+            if (UnionGeometry == nullptr)
+            {
+              UnionGeometry = ((OGRMultiPolygon*)UnionFeature->GetGeometryRef())->getGeometryRef(j);
+            }
+            else
+            {
+              UnionGeometry = UnionGeometry->Union(((OGRMultiPolygon*)UnionFeature->GetGeometryRef())->getGeometryRef(j));
+            }
+          }
+        }
+        if (!NewGeometry->Touches(UnionGeometry) and ((OGRPolygon*)NewGeometry)->get_Area() < ((OGRPolygon*)UnionGeometry)->get_Area())
+        {
+          FIDToRemoveTable.push_back(UnionFeature->GetFID());
+          OGRFeature *NewFeature = OGRFeature::CreateFeature(UnionLayer->GetLayerDefn());
+          NewFeature->SetField(m_IDFieldName.c_str(), UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str()));
+          NewFeature->SetField("IDPlot", UnionFeature->GetFieldAsInteger("IDPlot"));
+          NewFeature->SetField("ID", UnionFeature->GetFieldAsString("ID"));
+          NewFeature->SetField("IDPlot2", UnionFeature->GetFieldAsInteger("IDPlot2"));
+          NewFeature->SetField("ID2", UnionFeature->GetFieldAsString("ID2"));
+          NewFeature->SetField("IDPlot3", UnionFeature->GetFieldAsInteger("IDPlot3"));
+          NewFeature->SetField("ID3", UnionFeature->GetFieldAsString("ID3"));
+          NewFeature->SetGeometry(UnionGeometry);
+          UnionLayer->CreateFeature(NewFeature);
+          UnionLayer->SyncToDisk();
+          Union->SyncToDisk();
+          pos = std::find(IDPlotIDMaxTable[0].begin(), IDPlotIDMaxTable[0].end(), UnionFeature->GetFieldAsInteger("IDPlot")) - IDPlotIDMaxTable[0].begin();
+          IDMax = IDPlotIDMaxTable[1][pos];
+          IDPlotIDMaxTable[1][pos] = IDMax+1;
+          IDNew = std::to_string(UnionFeature->GetFieldAsInteger("IDPlot"))+"N"+std::to_string(IDMax+1);
+          NewFeature = OGRFeature::CreateFeature(UnionLayer->GetLayerDefn());
+          NewFeature->SetField(m_IDFieldName.c_str(), UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str()));
+          NewFeature->SetField("IDPlot", UnionFeature->GetFieldAsInteger("IDPlot"));
+          NewFeature->SetField("ID", IDNew.c_str());
+          NewFeature->SetField("IDPlot2", UnionFeature->GetFieldAsInteger("IDPlot2"));
+          NewFeature->SetField("ID2", UnionFeature->GetFieldAsString("ID2"));
+          NewFeature->SetField("IDPlot3", UnionFeature->GetFieldAsInteger("IDPlot3"));
+          NewFeature->SetField("ID3", UnionFeature->GetFieldAsString("ID3"));
+          NewFeature->SetGeometry(NewGeometry);
+          UnionLayer->CreateFeature(NewFeature);
+          UnionLayer->SyncToDisk();
+          Union->SyncToDisk();
+        }
+      }
+    }
+  }
+
+  UnionLayer = Union->GetLayer(0);
+  UnionLayer->ResetReading();
+
+  for (int i = 0; i < FIDToRemoveTable.size(); i++)
+  {
+    UnionLayer->DeleteFeature(FIDToRemoveTable[i]);
+  }
+
+  m_SQLRequest = "REPACK " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find("."));
+  Union->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
+
+  OGRDataSource::DestroyDataSource(Union);
+
+  FIDToRemoveTable.clear();
+  IDPlotIDMaxTable[0].clear();
+  IDPlotIDMaxTable[1].clear();
 
   // ===============================================================================
   // Checking for missing connections between entities
@@ -2842,7 +3336,7 @@ void LandProcessor::createSRFandLNR()
   UnionLayer->ResetReading();
   DataSource  = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
 
-  FIDConnectionProblemTab.clear();
+  FIDConnectionProblemTable.clear();
 
   while((UnionFeature = UnionLayer->GetNextFeature()) != nullptr)
   {
@@ -2855,25 +3349,26 @@ void LandProcessor::createSRFandLNR()
       SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
       if (SQLLayer->GetFeatureCount() == 0)
       {
-        FIDConnectionProblemTab.push_back(UnionFeature->GetFID());
+        FIDConnectionProblemTable.push_back(UnionFeature->GetFID());
       }
       DataSource->ReleaseResultSet(SQLLayer);
     }
   }
 
+  OGRDataSource::DestroyDataSource(DataSource);
   UnionLayer = Union->GetLayer(0);
   UnionLayer->ResetReading();
 
-  if (FIDConnectionProblemTab.size() != 0)
+  if (FIDConnectionProblemTable.size() != 0)
   {
-    while (FIDConnectionProblemTab.size() != 0)
+    while (FIDConnectionProblemTable.size() != 0)
     {
-      Beginning = FIDConnectionProblemTab.size();
-      IndexToRemove.clear();
+      Beginning = FIDConnectionProblemTable.size();
+      FIDToRemoveTable.clear();
       DataSource  = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
-      for (int i = 0; i < FIDConnectionProblemTab.size(); i++)
+      for (int i = 0; i < FIDConnectionProblemTable.size(); i++)
       {
-        UnionFeature = UnionLayer->GetFeature(FIDConnectionProblemTab[i]);
+        UnionFeature = UnionLayer->GetFeature(FIDConnectionProblemTable[i]);
         IDPlot = UnionFeature->GetFieldAsInteger("IDPlot");
         ID = UnionFeature->GetFieldAsString("ID");
         ID2 = UnionFeature->GetFieldAsString("ID2");
@@ -2895,7 +3390,7 @@ void LandProcessor::createSRFandLNR()
           UnionFeature->SetField("IDPlot3", IDPlot3New);
           UnionFeature->SetField("ID3", ID3New.c_str());
           UnionLayer->SetFeature(UnionFeature);
-          IndexToRemove.push_back(UnionFeature->GetFID());
+          FIDToRemoveTable.push_back(UnionFeature->GetFID());
           DataSource->ReleaseResultSet(SQLLayer);
           m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID2 == " + m_QMark + ID + m_QMark;
           SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
@@ -2919,15 +3414,15 @@ void LandProcessor::createSRFandLNR()
       }
       Union->SyncToDisk();
       OGRDataSource::DestroyDataSource(DataSource);
-      for (int i = 0; i < IndexToRemove.size(); i++)
+      for (int i = 0; i < FIDToRemoveTable.size(); i++)
       {
-        if (std::find(FIDConnectionProblemTab.begin(), FIDConnectionProblemTab.end(), IndexToRemove[i]) != FIDConnectionProblemTab.end())
+        if (std::find(FIDConnectionProblemTable.begin(), FIDConnectionProblemTable.end(), FIDToRemoveTable[i]) != FIDConnectionProblemTable.end())
         {
-          pos = std::find(FIDConnectionProblemTab.begin(), FIDConnectionProblemTab.end(), IndexToRemove[i]) - FIDConnectionProblemTab.begin();
-          FIDConnectionProblemTab.erase(FIDConnectionProblemTab.begin() + pos);
+          pos = std::find(FIDConnectionProblemTable.begin(), FIDConnectionProblemTable.end(), FIDToRemoveTable[i]) - FIDConnectionProblemTable.begin();
+          FIDConnectionProblemTable.erase(FIDConnectionProblemTable.begin() + pos);
         }
       }
-      End = FIDConnectionProblemTab.size();
+      End = FIDConnectionProblemTable.size();
       if (Beginning == End)
       {
         break;
@@ -2938,16 +3433,16 @@ void LandProcessor::createSRFandLNR()
   UnionLayer = Union->GetLayer(0);
   UnionLayer->ResetReading();
 
-  if (FIDConnectionProblemTab.size() != 0)
+  if (FIDConnectionProblemTable.size() != 0)
   {
-    while (FIDConnectionProblemTab.size() != 0)
+    while (FIDConnectionProblemTable.size() != 0)
     {
-      Beginning = FIDConnectionProblemTab.size();
-      IndexToRemove.clear();
+      Beginning = FIDConnectionProblemTable.size();
+      FIDToRemoveTable.clear();
       DataSource  = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
-      for (int i = 0; i < FIDConnectionProblemTab.size(); i++)
+      for (int i = 0; i < FIDConnectionProblemTable.size(); i++)
       {
-        UnionFeature = UnionLayer->GetFeature(FIDConnectionProblemTab[i]);
+        UnionFeature = UnionLayer->GetFeature(FIDConnectionProblemTable[i]);
         IDPlot = UnionFeature->GetFieldAsInteger("IDPlot");
         ID = UnionFeature->GetFieldAsString("ID");
         ID2 = UnionFeature->GetFieldAsString("ID2");
@@ -2968,7 +3463,7 @@ void LandProcessor::createSRFandLNR()
           UnionFeature->SetField("IDPlot3", IDPlot3New);
           UnionFeature->SetField("ID3", ID3New.c_str());
           UnionLayer->SetFeature(UnionFeature);
-          IndexToRemove.push_back(UnionFeature->GetFID());
+          FIDToRemoveTable.push_back(UnionFeature->GetFID());
           DataSource->ReleaseResultSet(SQLLayer);
           m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID2 == " + m_QMark + ID + m_QMark;
           SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
@@ -2991,16 +3486,16 @@ void LandProcessor::createSRFandLNR()
         }
       }
       Union->SyncToDisk();
-      for (int i = 0; i < IndexToRemove.size(); i++)
+      for (int i = 0; i < FIDToRemoveTable.size(); i++)
       {
-        if (std::find(FIDConnectionProblemTab.begin(), FIDConnectionProblemTab.end(), IndexToRemove[i]) != FIDConnectionProblemTab.end())
+        if (std::find(FIDConnectionProblemTable.begin(), FIDConnectionProblemTable.end(), FIDToRemoveTable[i]) != FIDConnectionProblemTable.end())
         {
-          pos = std::find(FIDConnectionProblemTab.begin(), FIDConnectionProblemTab.end(), IndexToRemove[i]) - FIDConnectionProblemTab.begin();
-          FIDConnectionProblemTab.erase(FIDConnectionProblemTab.begin() + pos);
+          pos = std::find(FIDConnectionProblemTable.begin(), FIDConnectionProblemTable.end(), FIDToRemoveTable[i]) - FIDConnectionProblemTable.begin();
+          FIDConnectionProblemTable.erase(FIDConnectionProblemTable.begin() + pos);
         }
       }
       OGRDataSource::DestroyDataSource(DataSource);
-      End = FIDConnectionProblemTab.size();
+      End = FIDConnectionProblemTable.size();
       if (Beginning == End)
       {
         break;
@@ -3008,7 +3503,7 @@ void LandProcessor::createSRFandLNR()
     }
   }
 
-  FIDConnectionProblemTab.clear();
+  FIDConnectionProblemTable.clear();
   OGRDataSource::DestroyDataSource(Union);
 
   // =========================================================================================
@@ -3021,7 +3516,7 @@ void LandProcessor::createSRFandLNR()
   UnionLayer->ResetReading();
   DataSource  = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
 
-  FIDConnectionProblemTab.clear();
+  FIDConnectionProblemTable.clear();
 
   while((UnionFeature = UnionLayer->GetNextFeature()) != nullptr)
   {
@@ -3035,7 +3530,7 @@ void LandProcessor::createSRFandLNR()
       SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
       if (SQLLayer->GetFeatureCount() == 0)
       {
-        FIDConnectionProblemTab.push_back(UnionFeature->GetFID());
+        FIDConnectionProblemTable.push_back(UnionFeature->GetFID());
       }
       DataSource->ReleaseResultSet(SQLLayer);
     }
@@ -3044,72 +3539,85 @@ void LandProcessor::createSRFandLNR()
   UnionLayer = Union->GetLayer(0);
   UnionLayer->ResetReading();
 
-  IndexToRemove.clear();
+  FIDToRemoveTable.clear();
 
-  if (FIDConnectionProblemTab.size() != 0)
+  if (FIDConnectionProblemTable.size() != 0)
   {
     DataSource  = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
-    for (int i = 0; i < FIDConnectionProblemTab.size(); i++)
+    for (int i = 0; i < FIDConnectionProblemTable.size(); i++)
     {
-      UnionFeature = UnionLayer->GetFeature(FIDConnectionProblemTab[i]);
+      UnionFeature = UnionLayer->GetFeature(FIDConnectionProblemTable[i]);
       IDPlot = UnionFeature->GetFieldAsInteger("IDPlot");
       ID = UnionFeature->GetFieldAsString("ID");
       ID2 = UnionFeature->GetFieldAsString("ID2");
-      m_SQLRequest = "SELECT ST_Union(geometry, (SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDConnectionProblemTab[i]) + ")), ROWID AS RID, IDPlot, ID, IDPlot2, ID2, IDPlot3, ID3 FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE"
+      m_SQLRequest = "SELECT ROWID AS RID, ST_Union(geometry, (SELECT geometry "
+          "FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " "
+          "WHERE ROWID == " + std::to_string(FIDConnectionProblemTable[i]) + ")), ROWID AS RID, IDPlot, "
+          "ID, IDPlot2, ID2, IDPlot3, ID3 FROM "
+          "" + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE"
           " IDPlot == " + std::to_string(IDPlot) + " AND "
-          "ST_Touches(geometry, (SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDConnectionProblemTab[i]) + ")) AND "
+          "ST_Touches(geometry, (SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE "
+          "ROWID == " + std::to_string(FIDConnectionProblemTable[i]) + ")) AND "
           "ID2 != " + m_QMark + ID + m_QMark + " AND ID3 != " + m_QMark + ID + m_QMark + " ORDER BY "
-          "ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDConnectionProblemTab[i]) + "))) DESC";
+          "ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " "
+          "WHERE ROWID == " + std::to_string(FIDConnectionProblemTable[i]) + "))) DESC";
       SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
       if (SQLLayer->GetFeatureCount() != 0)
       {
-        IDNew = SQLLayer->GetFeature(0)->GetFieldAsString("ID");
-        IDPlot2New = SQLLayer->GetFeature(0)->GetFieldAsInteger("IDPlot2");
-        ID2New = SQLLayer->GetFeature(0)->GetFieldAsString("ID2");
-        IDPlot3New = SQLLayer->GetFeature(0)->GetFieldAsInteger("IDPlot3");
-        ID3New = SQLLayer->GetFeature(0)->GetFieldAsString("ID3");
-        UnionGeometry = UnionFeature->GetGeometryRef();
-        NewFeature = OGRFeature::CreateFeature(UnionLayer->GetLayerDefn());
-        NewFeature->SetField(m_IDFieldName.c_str(), IDPlot);
-        NewFeature->SetField("IDPlot", IDPlot);
-        NewFeature->SetField("ID", IDNew.c_str());
-        NewFeature->SetField("IDPlot2", IDPlot2New);
-        NewFeature->SetField("ID2", ID2New.c_str());
-        NewFeature->SetField("IDPlot3", IDPlot3New);
-        NewFeature->SetField("ID3", ID3New.c_str());
-        NewFeature->SetGeometry(SQLLayer->GetFeature(0)->GetGeometryRef());
-        UnionLayer->CreateFeature(NewFeature);
-        IndexToRemove.push_back(SQLLayer->GetFeature(0)->GetFieldAsInteger("RID"));
-        IndexToRemove.push_back(FIDConnectionProblemTab[i]);
-        DataSource->ReleaseResultSet(SQLLayer);
-        m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID2 == " + m_QMark + ID + m_QMark;
-        SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
-        if (SQLLayer->GetFeatureCount() != 0)
+        for (int j = 0; j < SQLLayer->GetFeatureCount(); j++)
         {
-          for (int j = 0; j < SQLLayer->GetFeatureCount(); j++)
+          if (std::find(FIDConnectionProblemTable.begin(), FIDConnectionProblemTable.end(), SQLLayer->GetFeature(j)->GetFieldAsInteger("RID")) == FIDConnectionProblemTable.end())
           {
-            FID = SQLLayer->GetFeature(j)->GetFieldAsInteger("RID");
-            UnionFeatureToUpdate = UnionLayer->GetFeature(FID);
-            UnionFeatureToUpdate->SetField("ID2", IDNew.c_str());
-            UnionFeatureToUpdate->SetField("IDPlot3", IDPlot2New);
-            UnionFeatureToUpdate->SetField("ID3", ID2New.c_str());
-            UnionLayer->SetFeature(UnionFeatureToUpdate);
+            IDNew = SQLLayer->GetFeature(j)->GetFieldAsString("ID");
+            IDPlot2New = SQLLayer->GetFeature(j)->GetFieldAsInteger("IDPlot2");
+            ID2New = SQLLayer->GetFeature(j)->GetFieldAsString("ID2");
+            IDPlot3New = SQLLayer->GetFeature(j)->GetFieldAsInteger("IDPlot3");
+            ID3New = SQLLayer->GetFeature(j)->GetFieldAsString("ID3");
+            UnionGeometry = UnionFeature->GetGeometryRef();
+            NewFeature = OGRFeature::CreateFeature(UnionLayer->GetLayerDefn());
+            NewFeature->SetField(m_IDFieldName.c_str(), IDPlot);
+            NewFeature->SetField("IDPlot", IDPlot);
+            NewFeature->SetField("ID", IDNew.c_str());
+            NewFeature->SetField("IDPlot2", IDPlot2New);
+            NewFeature->SetField("ID2", ID2New.c_str());
+            NewFeature->SetField("IDPlot3", IDPlot3New);
+            NewFeature->SetField("ID3", ID3New.c_str());
+            NewFeature->SetGeometry(SQLLayer->GetFeature(j)->GetGeometryRef());
+            UnionLayer->CreateFeature(NewFeature);
+            FIDToRemoveTable.push_back(SQLLayer->GetFeature(j)->GetFieldAsInteger("RID"));
+            FIDToRemoveTable.push_back(FIDConnectionProblemTable[i]);
+            DataSource->ReleaseResultSet(SQLLayer);
+            m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID2 == " + m_QMark + ID + m_QMark;
+            SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
+            if (SQLLayer->GetFeatureCount() != 0)
+            {
+              for (int k = 0; k < SQLLayer->GetFeatureCount(); k++)
+              {
+                FID = SQLLayer->GetFeature(k)->GetFieldAsInteger("RID");
+                UnionFeatureToUpdate = UnionLayer->GetFeature(FID);
+                UnionFeatureToUpdate->SetField("ID2", IDNew.c_str());
+                UnionFeatureToUpdate->SetField("IDPlot3", IDPlot2New);
+                UnionFeatureToUpdate->SetField("ID3", ID2New.c_str());
+                UnionLayer->SetFeature(UnionFeatureToUpdate);
+              }
+            }
+            DataSource->ReleaseResultSet(SQLLayer);
+            m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID3 == " + m_QMark + ID + m_QMark;
+            SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
+            if (SQLLayer->GetFeatureCount() != 0)
+            {
+              for (int j = 0; j < SQLLayer->GetFeatureCount(); j++)
+              {
+                FID = SQLLayer->GetFeature(j)->GetFieldAsInteger("RID");
+                UnionFeatureToUpdate = UnionLayer->GetFeature(FID);
+                UnionFeatureToUpdate->SetField("ID3", IDNew.c_str());
+                UnionLayer->SetFeature(UnionFeatureToUpdate);
+              }
+            }
+            DataSource->ReleaseResultSet(SQLLayer);
+            break;
           }
         }
-        DataSource->ReleaseResultSet(SQLLayer);
-        m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID3 == " + m_QMark + ID + m_QMark;
-        SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
-        if (SQLLayer->GetFeatureCount() != 0)
-        {
-          for (int j = 0; j < SQLLayer->GetFeatureCount(); j++)
-          {
-            FID = SQLLayer->GetFeature(j)->GetFieldAsInteger("RID");
-            UnionFeatureToUpdate = UnionLayer->GetFeature(FID);
-            UnionFeatureToUpdate->SetField("ID3", IDNew.c_str());
-            UnionLayer->SetFeature(UnionFeatureToUpdate);
-          }
-        }
-        DataSource->ReleaseResultSet(SQLLayer);
       }
       else
       {
@@ -3123,15 +3631,15 @@ void LandProcessor::createSRFandLNR()
   UnionLayer = Union->GetLayer(0);
   UnionLayer->ResetReading();
 
-  if (IndexToRemove.size() != 0)
+  if (FIDToRemoveTable.size() != 0)
   {
-    for (int i = 0; i < IndexToRemove.size(); i++)
+    for (int i = 0; i < FIDToRemoveTable.size(); i++)
     {
-      UnionLayer->DeleteFeature(IndexToRemove[i]);
+      UnionLayer->DeleteFeature(FIDToRemoveTable[i]);
     }
   }
 
-  IndexToRemove.clear();
+  FIDToRemoveTable.clear();
   m_SQLRequest = "REPACK " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find("."));
   Union->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
   Union->SyncToDisk();
@@ -3149,10 +3657,10 @@ void LandProcessor::createSRFandLNR()
 
   while (N != 0)
   {
-    IndexToRemove.clear();
-    IDOldTab.clear();
-    IDNewTab.clear();
-    IDPlotNewTab.clear();
+    FIDToRemoveTable.clear();
+    IDOldTable.clear();
+    IDNewTable.clear();
+    IDPlotNewTable.clear();
     Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
     UnionLayer = Union->GetLayer(0);
     UnionLayer->ResetReading();
@@ -3164,7 +3672,8 @@ void LandProcessor::createSRFandLNR()
       IDPlot = UnionFeature->GetFieldAsInteger("IDPlot");
       ID = UnionFeature->GetFieldAsString("ID");
       ID2 = UnionFeature->GetFieldAsString("ID2");
-      if (ID != "0N1" and std::find(IndexToRemove.begin(), IndexToRemove.end(), FID) == IndexToRemove.end())
+      if (ID != "0N1" and std::find(FIDToRemoveTable.begin(), FIDToRemoveTable.end(), FID) == FIDToRemoveTable.end()
+          and std::find(IDPlotNewTable.begin(), IDPlotNewTable.end(), IDPlot) == IDPlotNewTable.end())
       {
         m_SQLRequest = "SELECT geometry, ROWID as RID, * FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE "
             "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FID) + ")) AND "
@@ -3180,12 +3689,12 @@ void LandProcessor::createSRFandLNR()
           NewGeometry = nullptr;
           for (int j = 0; j < SQLLayer->GetFeatureCount(); j++)
           {
-            if (std::find(IndexToRemove.begin(), IndexToRemove.end(), SQLLayer->GetFeature(j)->GetFieldAsInteger("RID")) == IndexToRemove.end())
+            if (std::find(FIDToRemoveTable.begin(), FIDToRemoveTable.end(), SQLLayer->GetFeature(j)->GetFieldAsInteger("RID")) == FIDToRemoveTable.end())
             {
-              IndexToRemove.push_back(SQLLayer->GetFeature(j)->GetFieldAsInteger("RID"));
-              IDOldTab.push_back(SQLLayer->GetFeature(j)->GetFieldAsString("ID"));
-              IDNewTab.push_back(ID.c_str());
-              IDPlotNewTab.push_back(IDPlot);
+              FIDToRemoveTable.push_back(SQLLayer->GetFeature(j)->GetFieldAsInteger("RID"));
+              IDOldTable.push_back(SQLLayer->GetFeature(j)->GetFieldAsString("ID"));
+              IDNewTable.push_back(ID.c_str());
+              IDPlotNewTable.push_back(IDPlot);
               if (NewGeometry == nullptr)
               {
                 NewGeometry = SQLLayer->GetFeature(j)->GetGeometryRef();
@@ -3210,63 +3719,52 @@ void LandProcessor::createSRFandLNR()
     OGRDataSource::DestroyDataSource(DataSource);
     UnionLayer = Union->GetLayer(0);
     UnionLayer->ResetReading();
-    if (IndexToRemove.size() != 0)
+    if (FIDToRemoveTable.size() != 0)
     {
-      for (int i = 0; i < IndexToRemove.size(); i++)
+      for (int i = 0; i < FIDToRemoveTable.size(); i++)
       {
-        UnionLayer->DeleteFeature(IndexToRemove[i]);
+        UnionLayer->DeleteFeature(FIDToRemoveTable[i]);
       }
     }
-    IndexToRemove.clear();
+    FIDToRemoveTable.clear();
     m_SQLRequest = "REPACK " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find("."));
     Union->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
     Union->SyncToDisk();
     OGRDataSource::DestroyDataSource(Union);
     Union  = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
     UnionLayer = Union->GetLayer(0);
-    DataSource  = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
-    for (int i = 0; i < IDOldTab.size(); i++)
+    UnionLayer->ResetReading();
+    while((UnionFeature = UnionLayer->GetNextFeature()) != nullptr)
     {
-      IDOld = IDOldTab[i];
-      IDNew = IDNewTab[i];
-      IDPlotNew = IDPlotNewTab[i];
-      m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE "
-          "ID2 == " + m_QMark + IDOldTab[i] + m_QMark;
-      SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
-      if (SQLLayer->GetFeatureCount() != 0)
+      if (std::find(IDOldTable.begin(), IDOldTable.end(), UnionFeature->GetFieldAsString("ID2")) != IDOldTable.end())
       {
-        for (int j = 0; j < SQLLayer->GetFeatureCount(); j++)
-        {
-          FID = SQLLayer->GetFeature(j)->GetFieldAsInteger("RID");
-          UnionFeature = UnionLayer->GetFeature(FID);
-          UnionFeature->SetField("IDPlot2",IDPlotNew);
-          UnionFeature->SetField("ID2",IDNew.c_str());
-          UnionLayer->SetFeature(UnionFeature);
-        }
+        pos = std::find(IDOldTable.begin(), IDOldTable.end(), UnionFeature->GetFieldAsString("ID2")) - IDOldTable.begin();
+        UnionFeature->SetField("ID2", IDNewTable[pos].c_str());
+        UnionFeature->SetField("IDPlot2", IDPlotNewTable[pos]);
+        UnionLayer->SetFeature(UnionFeature);
       }
-      DataSource->ReleaseResultSet(SQLLayer);
-      m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE "
-          "ID3 == " + m_QMark + IDOldTab[i] + m_QMark;
-      SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
-      if (SQLLayer->GetFeatureCount() != 0)
-      {
-        for (int j = 0; j < SQLLayer->GetFeatureCount(); j++)
-        {
-          FID = SQLLayer->GetFeature(j)->GetFieldAsInteger("RID");
-          UnionFeature = UnionLayer->GetFeature(FID);
-          UnionFeature->SetField("IDPlot3",IDPlotNew);
-          UnionFeature->SetField("ID3",IDNew.c_str());
-          UnionLayer->SetFeature(UnionFeature);
-        }
-      }
-      DataSource->ReleaseResultSet(SQLLayer);
     }
+    UnionLayer->SyncToDisk();
+    Union->SyncToDisk();
+    UnionLayer = Union->GetLayer(0);
+    UnionLayer->ResetReading();
+    while((UnionFeature = UnionLayer->GetNextFeature()) != nullptr)
+    {
+      if (std::find(IDOldTable.begin(), IDOldTable.end(), UnionFeature->GetFieldAsString("ID3")) != IDOldTable.end())
+      {
+        pos = std::find(IDOldTable.begin(), IDOldTable.end(), UnionFeature->GetFieldAsString("ID3")) - IDOldTable.begin();
+        UnionFeature->SetField("ID3", IDNewTable[pos].c_str());
+        UnionFeature->SetField("IDPlot3", IDPlotNewTable[pos]);
+        UnionLayer->SetFeature(UnionFeature);
+      }
+    }
+    UnionLayer->SyncToDisk();
+    Union->SyncToDisk();
     OGRDataSource::DestroyDataSource(Union);
-    OGRDataSource::DestroyDataSource(DataSource);
     Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
     UnionLayer = Union->GetLayer(0);
     UnionLayer->ResetReading();
-    DataSource  = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
+    DataSource  = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
     N = 0;
     while((UnionFeature = UnionLayer->GetNextFeature()) != nullptr)
     {
@@ -3276,7 +3774,7 @@ void LandProcessor::createSRFandLNR()
       ID2 = UnionFeature->GetFieldAsString("ID2");
       if (ID != "0N1")
       {
-        m_SQLRequest = "SELECT geometry, ROWID as RID, * FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE "
+        m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE "
             "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FID) + ")) AND "
             "IDPlot == " + std::to_string(IDPlot) + " AND ID2 == " + m_QMark + ID2 + m_QMark + " AND "
             "ROWID != " + std::to_string(FID) + " AND "
@@ -3296,10 +3794,10 @@ void LandProcessor::createSRFandLNR()
     OGRDataSource::DestroyDataSource(Union);
   }
 
-  IndexToRemove.clear();
-  IDOldTab.clear();
-  IDNewTab.clear();
-  IDPlotNewTab.clear();
+  FIDToRemoveTable.clear();
+  IDOldTable.clear();
+  IDNewTable.clear();
+  IDPlotNewTable.clear();
 
   // ==========================================================================
   // Checking for entities that have only two other entities as neighbors and
@@ -3308,71 +3806,114 @@ void LandProcessor::createSRFandLNR()
   // that it shears the border with in order to avoid fracturing the future LNR
   // ==========================================================================
 
-  Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
-  UnionLayer = Union->GetLayer(0);
-  UnionLayer->ResetReading();
-  DataSource  = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
+  FIDToRemoveTable.clear();
 
-  IndexToRemove.clear();
+  N = 1;
 
-  while((UnionFeature = UnionLayer->GetNextFeature()) != nullptr)
+  while (N != 0)
   {
-    FID = UnionFeature->GetFID();
-    IDPlot = UnionFeature->GetFieldAsInteger("IDPlot");
-    ID = UnionFeature->GetFieldAsString("ID");
-    ID2 = UnionFeature->GetFieldAsString("ID2");
-    if (ID != "0N1" and ID2 != "0N1")
+    Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+    UnionLayer = Union->GetLayer(0);
+    UnionLayer->ResetReading();
+    DataSource  = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
+    while((UnionFeature = UnionLayer->GetNextFeature()) != nullptr)
     {
-      m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE "
-          "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
-          "ROWID != " + std::to_string(FID);
-      SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
-      if (SQLLayer->GetFeatureCount() <= 2)
+      FID = UnionFeature->GetFID();
+      IDPlot = UnionFeature->GetFieldAsInteger("IDPlot");
+      ID = UnionFeature->GetFieldAsString("ID");
+      ID2 = UnionFeature->GetFieldAsString("ID2");
+      if (ID != "0N1" and ID2 != "0N1")
       {
-        DataSource->ReleaseResultSet(SQLLayer);
         m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE "
             "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
-            "IDPlot == " + std::to_string(IDPlot) + " AND ROWID != " + std::to_string(FID);
+            "ROWID != " + std::to_string(FID);
         SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
-        if (SQLLayer->GetFeatureCount() != 0)
+        if (SQLLayer->GetFeatureCount() <= 2)
         {
-          UnionGeometry = UnionFeature->GetGeometryRef();
-          AggregatingFeature = UnionLayer->GetFeature(SQLLayer->GetFeature(0)->GetFieldAsInteger("RID"));
-          AggregatingGeometry = AggregatingFeature->GetGeometryRef();
-          AggregatingGeometry = AggregatingGeometry->Union(UnionGeometry);
-          AggregatingFeature->SetGeometry(AggregatingGeometry);
-          UnionLayer->SetFeature(AggregatingFeature);
-          IndexToRemove.push_back(FID);
+          DataSource->ReleaseResultSet(SQLLayer);
+          m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE "
+              "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
+              "IDPlot == " + std::to_string(IDPlot) + " AND ROWID != " + std::to_string(FID);
+          SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
+          if (SQLLayer->GetFeatureCount() != 0)
+          {
+            UnionGeometry = UnionFeature->GetGeometryRef();
+            AggregatingFeature = UnionLayer->GetFeature(SQLLayer->GetFeature(0)->GetFieldAsInteger("RID"));
+            AggregatingGeometry = AggregatingFeature->GetGeometryRef();
+            AggregatingGeometry = AggregatingGeometry->Union(UnionGeometry);
+            AggregatingFeature->SetGeometry(AggregatingGeometry);
+            UnionLayer->SetFeature(AggregatingFeature);
+            FIDToRemoveTable.push_back(FID);
+          }
+          DataSource->ReleaseResultSet(SQLLayer);
         }
-        DataSource->ReleaseResultSet(SQLLayer);
-      }
-      else
-      {
-        DataSource->ReleaseResultSet(SQLLayer);
+        else
+        {
+          DataSource->ReleaseResultSet(SQLLayer);
+        }
       }
     }
-  }
-
-  OGRDataSource::DestroyDataSource(DataSource);
-
-  if (IndexToRemove.size() != 0)
-  {
-    for (int i = 0; i < IndexToRemove.size(); i++)
+    OGRDataSource::DestroyDataSource(DataSource);
+    OGRDataSource::DestroyDataSource(Union);
+    Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+    UnionLayer = Union->GetLayer(0);
+    UnionLayer->ResetReading();
+    if (FIDToRemoveTable.size() != 0)
     {
-      UnionLayer->DeleteFeature(IndexToRemove[i]);
+      for (int i = 0; i < FIDToRemoveTable.size(); i++)
+      {
+        UnionLayer->DeleteFeature(FIDToRemoveTable[i]);
+      }
     }
+    FIDToRemoveTable.clear();
+    m_SQLRequest = "REPACK " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find("."));
+    Union->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
+    OGRDataSource::DestroyDataSource(Union);
+    Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+    UnionLayer = Union->GetLayer(0);
+    UnionLayer->ResetReading();
+    DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+    N = 0;
+    while((UnionFeature = UnionLayer->GetNextFeature()) != nullptr)
+    {
+      FID = UnionFeature->GetFID();
+      IDPlot = UnionFeature->GetFieldAsInteger("IDPlot");
+      ID = UnionFeature->GetFieldAsString("ID");
+      ID2 = UnionFeature->GetFieldAsString("ID2");
+      if (ID != "0N1" and ID2 != "0N1")
+      {
+        m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE "
+            "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
+            "ROWID != " + std::to_string(FID);
+        SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
+        if (SQLLayer->GetFeatureCount() <= 2)
+        {
+          DataSource->ReleaseResultSet(SQLLayer);
+          m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE "
+              "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
+              "IDPlot == " + std::to_string(IDPlot) + " AND ROWID != " + std::to_string(FID);
+          SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
+          if (SQLLayer->GetFeatureCount() != 0)
+          {
+            N += 1;
+          }
+          DataSource->ReleaseResultSet(SQLLayer);
+        }
+        else
+        {
+          DataSource->ReleaseResultSet(SQLLayer);
+        }
+      }
+    }
+    OGRDataSource::DestroyDataSource(Union);
+    OGRDataSource::DestroyDataSource(DataSource);
   }
-
-  IndexToRemove.clear();
-  m_SQLRequest = "REPACK " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find("."));
-  Union->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
-  OGRDataSource::DestroyDataSource(Union);
 
   // ============================================================================
   // Final regrouping
   // ============================================================================
 
-  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputEntitiesGroupedVectorFile).c_str()))
+  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputEntitiesGroupedVectorFile)))
   {
     mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputEntitiesGroupedVectorFile).c_str());
   }
@@ -3394,8 +3935,8 @@ void LandProcessor::createSRFandLNR()
   FinalLayer = Final->GetLayer(0);
   FinalLayer->ResetReading();
 
-  IDOldTab.clear();
-  IDNewTab.clear();
+  IDOldTable.clear();
+  IDNewTable.clear();
 
   while ((FinalFeature = FinalLayer->GetNextFeature()) != nullptr)
   {
@@ -3406,9 +3947,9 @@ void LandProcessor::createSRFandLNR()
     {
       if (ID.substr(ID.find("N")+1, ID.length()-1) != "1")
       {
-        IDOldTab.push_back(ID.c_str());
+        IDOldTable.push_back(ID.c_str());
         IDNew = std::to_string(IDPlot) + "N1";
-        IDNewTab.push_back(IDNew);
+        IDNewTable.push_back(IDNew);
         FinalFeature->SetField("ID", IDNew.c_str());
         FinalLayer->SetFeature(FinalFeature);
       }
@@ -3421,9 +3962,9 @@ void LandProcessor::createSRFandLNR()
       {
         if(std::stoi(ID.substr(ID.find("N")+1, ID.length()-1)) != std::stoi(IDAbove.substr(IDAbove.find("N")+1, IDAbove.length()-1))+1)
         {
-          IDOldTab.push_back(ID.c_str());
+          IDOldTable.push_back(ID.c_str());
           IDNew = std::to_string(IDPlot) + "N" + std::to_string(std::stoi(IDAbove.substr(IDAbove.find("N")+1, IDAbove.length()-1))+1);
-          IDNewTab.push_back(IDNew.c_str());
+          IDNewTable.push_back(IDNew.c_str());
           FinalFeature->SetField("ID", IDNew.c_str());
           FinalLayer->SetFeature(FinalFeature);
         }
@@ -3432,9 +3973,9 @@ void LandProcessor::createSRFandLNR()
       {
         if (ID.substr(ID.find("N")+1, ID.length()-1) != "1")
         {
-          IDOldTab.push_back(ID.c_str());
+          IDOldTable.push_back(ID.c_str());
           IDNew = std::to_string(IDPlot) + "N1";
-          IDNewTab.push_back(IDNew);
+          IDNewTable.push_back(IDNew);
           FinalFeature->SetField("ID", IDNew.c_str());
           FinalLayer->SetFeature(FinalFeature);
         }
@@ -3449,22 +3990,22 @@ void LandProcessor::createSRFandLNR()
   {
     ID2 = FinalFeature->GetFieldAsString("ID2");
     ID3 = FinalFeature->GetFieldAsString("ID3");
-    if (std::find(IDOldTab.begin(), IDOldTab.end(), ID2.c_str()) != IDOldTab.end())
+    if (std::find(IDOldTable.begin(), IDOldTable.end(), ID2.c_str()) != IDOldTable.end())
     {
-      pos = std::find(IDOldTab.begin(), IDOldTab.end(), ID2.c_str()) - IDOldTab.begin();
-      FinalFeature->SetField("ID2", IDNewTab[pos].c_str());
+      pos = std::find(IDOldTable.begin(), IDOldTable.end(), ID2.c_str()) - IDOldTable.begin();
+      FinalFeature->SetField("ID2", IDNewTable[pos].c_str());
       FinalLayer->SetFeature(FinalFeature);
     }
-    if (std::find(IDOldTab.begin(), IDOldTab.end(), ID3.c_str()) != IDOldTab.end())
+    if (std::find(IDOldTable.begin(), IDOldTable.end(), ID3.c_str()) != IDOldTable.end())
     {
-      pos = std::find(IDOldTab.begin(), IDOldTab.end(), ID3.c_str()) - IDOldTab.begin();
-      FinalFeature->SetField("ID3", IDNewTab[pos].c_str());
+      pos = std::find(IDOldTable.begin(), IDOldTable.end(), ID3.c_str()) - IDOldTable.begin();
+      FinalFeature->SetField("ID3", IDNewTable[pos].c_str());
       FinalLayer->SetFeature(FinalFeature);
     }
   }
 
-  IDOldTab.clear();
-  IDNewTab.clear();
+  IDOldTable.clear();
+  IDNewTable.clear();
   OGRDataSource::DestroyDataSource(Final);
 
   // ================================================================================
@@ -3480,25 +4021,25 @@ void LandProcessor::createSRFandLNR()
   FinalLayer->ResetReading();
   mp_SRS = Final->GetLayer(0)->GetSpatialRef();
 
-  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputLinearEntitiesVectorFile).c_str()))
+  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputLinearEntitiesVectorFile)))
   {
     mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputLinearEntitiesVectorFile).c_str());
   }
 
-  LNR = mp_VectorDriver->CreateDataSource( getOutputVectorPath(m_OutputLinearEntitiesVectorFile).c_str(), nullptr);
+  LNR = mp_VectorDriver->CreateDataSource( getOutputVectorPath(m_OutputLinearEntitiesVectorFile).c_str(), nullptr); // New boundaries file
   LNRLayer = LNR->CreateLayer( "LNR", mp_SRS, wkbLineString, nullptr );
 
-  FieldNamesTab.clear();
-  FieldNamesTab = {"FaceA","FaceB","ID","IDTo"};
+  FieldNamesTable.clear();
+  FieldNamesTable = {"FaceA","FaceB","ID","IDTo"};
 
-  for (int i = 0; i < FieldNamesTab.size(); i++)
+  for (int i = 0; i < FieldNamesTable.size(); i++)
   {
-    createField(LNRLayer, FieldNamesTab[i].c_str(), OFTString);
+    createField(LNRLayer, FieldNamesTable[i].c_str(), OFTString);
   }
 
   DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesGroupedVectorFile).c_str(), TRUE );
   LNRFeature = OGRFeature::CreateFeature(LNRLayer->GetLayerDefn());
-  FacesTab.clear();
+  FacesTable.clear();
 
   while ((FinalFeature = FinalLayer->GetNextFeature()) != nullptr)
   {
@@ -3517,16 +4058,16 @@ void LandProcessor::createSRFandLNR()
         {
           FaceB = SQLLayer->GetFeature(i)->GetFieldAsString("ID");
           FaceBA = FaceB + "-" + FaceA;
-          if (std::find(FacesTab.begin(), FacesTab.end(), FaceBA.c_str()) == FacesTab.end())
+          if (std::find(FacesTable.begin(), FacesTable.end(), FaceBA.c_str()) == FacesTable.end())
           {
-            LNRFeature->SetField(FieldNamesTab[0].c_str(), FaceA.c_str());
-            LNRFeature->SetField(FieldNamesTab[1].c_str(), FaceB.c_str());
+            LNRFeature->SetField(FieldNamesTable[0].c_str(), FaceA.c_str());
+            LNRFeature->SetField(FieldNamesTable[1].c_str(), FaceB.c_str());
             NewGeometry = FinalFeature->GetGeometryRef()->Intersection(SQLLayer->GetFeature(i)->GetGeometryRef());
             LNRFeature->SetGeometry(NewGeometry);
             LNRLayer->CreateFeature(LNRFeature);
             LNR->SyncToDisk();
             FaceAB = FaceA + "-" + FaceB;
-            FacesTab.push_back(FaceAB.c_str());
+            FacesTable.push_back(FaceAB.c_str());
           }
         }
       }
@@ -3534,8 +4075,8 @@ void LandProcessor::createSRFandLNR()
     }
   }
 
-  FieldNamesTab.clear();
-  FacesTab.clear();
+  FieldNamesTable.clear();
+  FacesTable.clear();
   OGRFeature::DestroyFeature(LNRFeature);
   OGRDataSource::DestroyDataSource(LNR);
   OGRDataSource::DestroyDataSource(DataSource);
@@ -3545,7 +4086,7 @@ void LandProcessor::createSRFandLNR()
   // Creating surface entities vector file - SRF.shp
   // ================================================================================
 
-  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputSurfaceEntitiesVectorFile).c_str()))
+  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputSurfaceEntitiesVectorFile)))
   {
     mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputSurfaceEntitiesVectorFile).c_str());
   }
@@ -3558,19 +4099,19 @@ void LandProcessor::createSRFandLNR()
   Final->ReleaseResultSet(SQLLayer);
   OGRDataSource::DestroyDataSource(Final);
 
-  FieldNamesTab.clear();
-  FieldNamesTab = {"IDTo"};
+  FieldNamesTable.clear();
+  FieldNamesTable = {"IDTo"};
 
   SRF = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputSurfaceEntitiesVectorFile).c_str(), TRUE );
   SRFLayer = SRF->GetLayer(0);
   SRFLayer->ResetReading();
 
-  for (int i = 0; i < FieldNamesTab.size(); i++)
+  for (int i = 0; i < FieldNamesTable.size(); i++)
   {
-    createField(SRFLayer, FieldNamesTab[i].c_str(), OFTString);
+    createField(SRFLayer, FieldNamesTable[i].c_str(), OFTString);
   }
 
-  FieldNamesTab.clear();
+  FieldNamesTable.clear();
   OGRDataSource::DestroyDataSource(SRF);
 
   // ================================================================================
@@ -3621,33 +4162,33 @@ void LandProcessor::createSRFandLNR()
   LNRLayer = LNR->GetLayer(0);
   LNRLayer->ResetReading();
 
-  FieldNamesTab.clear();
-  FieldNamesTab = {"FaceA", "FaceB"};
+  FieldNamesTable.clear();
+  FieldNamesTable = {"FaceA", "FaceB"};
 
   FeatureDefn = LNRLayer->GetLayerDefn();
 
-  if (FieldNamesTab.size() > 0)
+  if (FieldNamesTable.size() > 0)
   {
-    for (int i = 0; i < FieldNamesTab.size(); i++)
+    for (int i = 0; i < FieldNamesTable.size(); i++)
     {
-      FieldIndex = FeatureDefn->GetFieldIndex(FieldNamesTab[i].c_str());
+      FieldIndex = FeatureDefn->GetFieldIndex(FieldNamesTable[i].c_str());
       LNRLayer->DeleteField(FieldIndex);
     }
   }
 
   LNR->SyncToDisk();
-  FieldNamesTab.clear();
+  FieldNamesTable.clear();
 
   LNRLayer = LNR->GetLayer(0);
 
-  FieldNamesTab = {"Length"};
+  FieldNamesTable = {"Length"};
 
-  for (int i = 0; i < FieldNamesTab.size(); i++)
+  for (int i = 0; i < FieldNamesTable.size(); i++)
   {
-    createField(LNRLayer, FieldNamesTab[i].c_str(), OFTReal);
+    createField(LNRLayer, FieldNamesTable[i].c_str(), OFTReal);
   }
 
-  FieldNamesTab.clear();
+  FieldNamesTable.clear();
 
   OGRDataSource::DestroyDataSource(LNR);
   OGRDataSource::DestroyDataSource(DataSource);
@@ -3690,56 +4231,54 @@ void LandProcessor::createSRFandLNR()
   SRFLayer = SRF->GetLayer(0);
   SRFLayer->ResetReading();
 
-  FieldNamesTab.clear();
-  FieldNamesTab = {"ID2"};
+  FieldNamesTable.clear();
+  FieldNamesTable = {"ID2"};
 
   FeatureDefn = SRFLayer->GetLayerDefn();
 
-  if (FieldNamesTab.size() > 0)
+  if (FieldNamesTable.size() > 0)
   {
-    for (int i = 0; i < FieldNamesTab.size(); i++)
+    for (int i = 0; i < FieldNamesTable.size(); i++)
     {
-      FieldIndex = FeatureDefn->GetFieldIndex(FieldNamesTab[i].c_str());
+      FieldIndex = FeatureDefn->GetFieldIndex(FieldNamesTable[i].c_str());
       SRFLayer->DeleteField(FieldIndex);
     }
   }
 
   SRF->SyncToDisk();
-  FieldNamesTab.clear();
+  FieldNamesTable.clear();
 
   SRFLayer = SRF->GetLayer(0);
   SRFLayer->ResetReading();
 
-  FieldNamesTab.clear();
-  FieldNamesTab = {"LandUse", "Surface",  "SlopeMin", "SlopeMax", "SlopeMean"};
+  FieldNamesTable.clear();
+  FieldNamesTable = {"LandUse", "Surface",  "SlopeMin", "SlopeMax", "SlopeMean"};
 
-  for (int i = 0; i < FieldNamesTab.size(); i++)
+  for (int i = 0; i < FieldNamesTable.size(); i++)
   {
-    if (FieldNamesTab[i] == "LandUse")
+    if (FieldNamesTable[i] == "LandUse")
     {
-      createField(SRFLayer, FieldNamesTab[i].c_str(), OFTString);
+      createField(SRFLayer, FieldNamesTable[i].c_str(), OFTString);
     }
     else
     {
-      createField(SRFLayer, FieldNamesTab[i].c_str(), OFTReal);
+      createField(SRFLayer, FieldNamesTable[i].c_str(), OFTReal);
     }
   }
 
-  FieldNamesTab.clear();
+  FieldNamesTable.clear();
   OGRDataSource::DestroyDataSource(SRF);
   OGRDataSource::DestroyDataSource(DataSource);
 
 }
 
-
 // ====================================================================
 // ====================================================================
-
 
 void LandProcessor::setSRFParameters()
 {
 
-  BLOCK_ENTER(__PRETTY_FUNCTION__)
+  VERBOSE_MESSAGE(1,"Entering " << __PRETTY_FUNCTION__);
 
   // =====================================================================
   // Variables that are used in this block
@@ -3750,8 +4289,8 @@ void LandProcessor::setSRFParameters()
 
   std::string ID, IDTo, LandUseValue;
 
-  std::vector <std::string> FieldNamesTab;
-  std::vector <double> XPointsTab, YPointsTab, SlopeValuesTab;
+  std::vector <std::string> FieldNamesTable;
+  std::vector <double> XPointsTable, YPointsTable, SlopeValuesTable;
 
   OGRDataSource *DataSource, *SRF, *Plots;
   OGRLayer *SQLLayer, *SRFLayer, *PlotsLayer;
@@ -3772,16 +4311,12 @@ void LandProcessor::setSRFParameters()
   float *SlopeRow;
   int *TargetRow;
 
-  // ======================================================================================
-  // Checking if necessary files are present in the appropriate folder
-  // ======================================================================================
-
-  if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputSurfaceEntitiesVectorFile).c_str()))
+  if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputSurfaceEntitiesVectorFile)))
   {
     throw std::runtime_error("LandProcessor::setSRFParameters(): " + m_OutputSurfaceEntitiesVectorFile + ": no such file in the output vector directory");
   }
 
-  if (!openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputSlopeRasterFile).c_str()))
+  if (!openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputSlopeRasterFile)))
   {
     throw std::runtime_error("LandProcessor::setSRFParameters(): " + m_OutputSlopeRasterFile + ": no such file in the output raster directory");
   }
@@ -3831,14 +4366,14 @@ void LandProcessor::setSRFParameters()
   PlotsLayer = Plots->GetLayer(0);
   FeatureDefn = PlotsLayer->GetLayerDefn();
 
-  FieldNamesTab.clear();
+  FieldNamesTable.clear();
 
   for (int i = 0; i < FeatureDefn->GetFieldCount(); i++)
   {
-    FieldNamesTab.push_back(PlotsLayer->GetLayerDefn()->GetFieldDefn(i)->GetNameRef());
+    FieldNamesTable.push_back(PlotsLayer->GetLayerDefn()->GetFieldDefn(i)->GetNameRef());
   }
 
-  if(std::find(FieldNamesTab.begin(), FieldNamesTab.end(), m_LandUseFieldName) != FieldNamesTab.end())
+  if(std::find(FieldNamesTable.begin(), FieldNamesTable.end(), m_LandUseFieldName) != FieldNamesTable.end())
   {
     while ((SRFFeature = SRFLayer->GetNextFeature()) != nullptr)
     {
@@ -3869,12 +4404,12 @@ void LandProcessor::setSRFParameters()
     }
   }
 
-  FieldNamesTab.clear();
+  FieldNamesTable.clear();
   OGRDataSource::DestroyDataSource(Plots);
   OGRDataSource::DestroyDataSource(SRF);
 
   // ================================================================================
-  // Minimum, maximum and neam slope calculations for SRF
+  // Minimum, maximum and mean slope calculations for SRF
   // ================================================================================
 
   SRF = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputSurfaceEntitiesVectorFile).c_str(), TRUE );
@@ -3887,10 +4422,10 @@ void LandProcessor::setSRFParameters()
 
   getGeoTransform(Slope);
 
-  XOrigin = mp_GeoTransformVal[0];
-  YOrigin = mp_GeoTransformVal[3];
-  PixelWidth = mp_GeoTransformVal[1];
-  PixelHeight = mp_GeoTransformVal[5];
+  XOrigin = m_GeoTransformVal[0];
+  YOrigin = m_GeoTransformVal[3];
+  PixelWidth = m_GeoTransformVal[1];
+  PixelHeight = m_GeoTransformVal[5];
 
   SRFLayer = SRF->GetLayer(0);
   SRFLayer->ResetReading();
@@ -3902,8 +4437,8 @@ void LandProcessor::setSRFParameters()
     if (IDPlot != 0)
     {
       SRFGeometry = SRFFeature->GetGeometryRef();
-      XPointsTab.clear();
-      YPointsTab.clear();
+      XPointsTable.clear();
+      YPointsTable.clear();
       if (SRFGeometry->getGeometryType() == 3)
       {
         SRFPolygon = (OGRPolygon*) SRFGeometry;
@@ -3911,8 +4446,8 @@ void LandProcessor::setSRFParameters()
         for (int i = 0; i < NPoints; i++)
         {
           SRFPolygon->getExteriorRing()->getPoint(i,&SRFPoint);
-          XPointsTab.push_back(SRFPoint.getX());
-          YPointsTab.push_back(SRFPoint.getY());
+          XPointsTable.push_back(SRFPoint.getX());
+          YPointsTable.push_back(SRFPoint.getY());
         }
       }
       else if (SRFGeometry->getGeometryType() == 6)
@@ -3925,17 +4460,17 @@ void LandProcessor::setSRFParameters()
           for (int j = 0; j < NPoints; j++)
           {
             SRFPolygon->getExteriorRing()->getPoint(j,&SRFPoint);
-            XPointsTab.push_back(SRFPoint.getX());
-            YPointsTab.push_back(SRFPoint.getY());
+            XPointsTable.push_back(SRFPoint.getX());
+            YPointsTable.push_back(SRFPoint.getY());
           }
         }
       }
-      XMin = XPointsTab.at(std::distance(std::begin(XPointsTab), std::min_element(std::begin(XPointsTab), std::end(XPointsTab))));
-      XMax = XPointsTab.at(std::distance(std::begin(XPointsTab), std::max_element(std::begin(XPointsTab), std::end(XPointsTab))));
-      YMin = YPointsTab.at(std::distance(std::begin(YPointsTab), std::min_element(std::begin(YPointsTab), std::end(YPointsTab))));
-      YMax = YPointsTab.at(std::distance(std::begin(YPointsTab), std::max_element(std::begin(YPointsTab), std::end(YPointsTab))));
-      XPointsTab.clear();
-      YPointsTab.clear();
+      XMin = XPointsTable.at(std::distance(std::begin(XPointsTable), std::min_element(std::begin(XPointsTable), std::end(XPointsTable))));
+      XMax = XPointsTable.at(std::distance(std::begin(XPointsTable), std::max_element(std::begin(XPointsTable), std::end(XPointsTable))));
+      YMin = YPointsTable.at(std::distance(std::begin(YPointsTable), std::min_element(std::begin(YPointsTable), std::end(YPointsTable))));
+      YMax = YPointsTable.at(std::distance(std::begin(YPointsTable), std::max_element(std::begin(YPointsTable), std::end(YPointsTable))));
+      XPointsTable.clear();
+      YPointsTable.clear();
       XOff = int((XMin - XOrigin)/PixelWidth);
       YOff = int((YOrigin - YMax)/PixelWidth);
       XCount = int((XMax - XMin)/PixelWidth)+1;
@@ -3967,7 +4502,7 @@ void LandProcessor::setSRFParameters()
       TargetBand = Target->GetRasterBand(1);
       SlopeRow = (float*) CPLMalloc(sizeof(float) *Target->GetRasterXSize());
       TargetRow = (int*) CPLMalloc(sizeof(int) *Target->GetRasterXSize());
-      SlopeValuesTab.clear();
+      SlopeValuesTable.clear();
       for (int i = 0; i < Target->GetRasterYSize(); i++)
       {
         for (int j = 0; j < Target->GetRasterXSize(); j++)
@@ -3976,14 +4511,19 @@ void LandProcessor::setSRFParameters()
           TargetBand->RasterIO( GF_Read, 0, i, Target->GetRasterXSize(), 1, TargetRow, Target->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
           if (TargetRow[j] != 0)
           {
-            SlopeValuesTab.push_back(SlopeRow[j]);
+            SlopeValuesTable.push_back(SlopeRow[j]);
           }
         }
       }
-      SlopeMin = SlopeValuesTab.at(std::distance(std::begin(SlopeValuesTab), std::min_element(std::begin(SlopeValuesTab), std::end(SlopeValuesTab))));
-      SlopeMax = SlopeValuesTab.at(std::distance(std::begin(SlopeValuesTab), std::max_element(std::begin(SlopeValuesTab), std::end(SlopeValuesTab))));
-      SlopeMean = (double) std::accumulate(SlopeValuesTab.begin(), SlopeValuesTab.end(), 0)/SlopeValuesTab.size();
-      SlopeValuesTab.clear();
+      SlopeMin = SlopeValuesTable.at(std::distance(std::begin(SlopeValuesTable), std::min_element(std::begin(SlopeValuesTable), std::end(SlopeValuesTable))));
+      SlopeMax = SlopeValuesTable.at(std::distance(std::begin(SlopeValuesTable), std::max_element(std::begin(SlopeValuesTable), std::end(SlopeValuesTable))));
+      SlopeMean = 0;
+      for (int k = 0; k < SlopeValuesTable.size(); k++)
+      {
+        SlopeMean += SlopeValuesTable[k];
+      }
+      SlopeMean = SlopeMean/SlopeValuesTable.size();
+      SlopeValuesTable.clear();
       SRFFeature->SetField("SlopeMin", SlopeMin);
       SRFFeature->SetField("SlopeMax", SlopeMax);
       SRFFeature->SetField("SlopeMean", SlopeMean);
@@ -4005,7 +4545,6 @@ void LandProcessor::setSRFParameters()
   GDALClose( Slope );
   OGRDataSource::DestroyDataSource(SRF);
 
-  BLOCK_EXIT(__PRETTY_FUNCTION__)
 }
 
 
@@ -4015,7 +4554,8 @@ void LandProcessor::setSRFParameters()
 
 void LandProcessor::setLNRParameters()
 {
-  BLOCK_ENTER(__PRETTY_FUNCTION__)
+
+  VERBOSE_MESSAGE(1,"Entering " << __PRETTY_FUNCTION__);
 
   // =====================================================================
   // Variables that are used in this block
@@ -4029,11 +4569,7 @@ void LandProcessor::setLNRParameters()
 
   OGRMultiLineString* LNRMultiLineString;
 
-  // ======================================================================================
-  // Checking if necessary vector files are present in the appropriate folder
-  // ======================================================================================
-
-  if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputLinearEntitiesVectorFile).c_str()))
+  if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputLinearEntitiesVectorFile)))
   {
     throw std::runtime_error("LandProcessor::setLNRParameters(): " + m_OutputLinearEntitiesVectorFile + ": no such file in the output vector directory");
   }
@@ -4068,7 +4604,6 @@ void LandProcessor::setLNRParameters()
 
   OGRDataSource::DestroyDataSource(LNR);
 
-  BLOCK_EXIT(__PRETTY_FUNCTION__)
 }
 
 
@@ -4078,7 +4613,8 @@ void LandProcessor::setLNRParameters()
 
 void LandProcessor::createSU()
 {
-  BLOCK_ENTER(__PRETTY_FUNCTION__)
+
+  VERBOSE_MESSAGE(1,"Entering " << __PRETTY_FUNCTION__);
 
   // =====================================================================
   // Variables that are used in this block
@@ -4092,13 +4628,9 @@ void LandProcessor::createSU()
   OGRGeometry *SUGeometry;
   OGRFeatureDefn *FeatureDefn;
 
-  // ======================================================================================
-  // Checking if necessary vector files are present in the appropriate folder
-  // ======================================================================================
-
   mp_VectorDriver = OGRSFDriverRegistrar::GetRegistrar()->GetDriverByName(m_VectorDriverName.c_str());
 
-  if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputSurfaceEntitiesVectorFile).c_str()))
+  if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputSurfaceEntitiesVectorFile)))
   {
     throw std::runtime_error("LandProcessor::createSU(): " + m_OutputSurfaceEntitiesVectorFile + ": no such file in the output vector directory");
   }
@@ -4109,7 +4641,7 @@ void LandProcessor::createSU()
 
   SRF = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputSurfaceEntitiesVectorFile).c_str(), TRUE );
 
-  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputSUVectorFile).c_str()))
+  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputSUVectorFile)))
   {
     mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputSUVectorFile).c_str());
   }
@@ -4145,7 +4677,6 @@ void LandProcessor::createSU()
   SULayer->SyncToDisk();
   OGRDataSource::DestroyDataSource(SU);
 
-  BLOCK_EXIT(__PRETTY_FUNCTION__)
 }
 
 
@@ -4155,7 +4686,8 @@ void LandProcessor::createSU()
 
 void LandProcessor::createRS()
 {
-  BLOCK_ENTER(__PRETTY_FUNCTION__)
+
+  VERBOSE_MESSAGE(1,"Entering " << __PRETTY_FUNCTION__);
 
   // =====================================================================
   // Variables that are used in this block
@@ -4167,7 +4699,7 @@ void LandProcessor::createRS()
 
   std::string ID, IDTo;
 
-  std::vector <std::string> FieldNamesTab, FieldNamesLTab, FileNamesTab = {m_InputDitchesFile, m_InputThalwegsFile, m_InputRivesrFile};;
+  std::vector <std::string> FieldNamesTable, FieldNamesLTable, FileNamesTab = {m_InputDitchesFile, m_InputThalwegsFile, m_InputRivesrFile};;
 
   OGRDataSource *DataSource, *LNR, *RS;
   OGRLayer *SQLLayer, *LNRLayer, *RSLayer;
@@ -4177,18 +4709,15 @@ void LandProcessor::createRS()
 
   mp_VectorDriver = OGRSFDriverRegistrar::GetRegistrar()->GetDriverByName(m_VectorDriverName.c_str());
 
-  // ======================================================================================
-  // Checking if necessary vector files are present in the appropriate folder
-  // ======================================================================================
-
-  if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputLinearEntitiesVectorFile).c_str()))
+  if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputLinearEntitiesVectorFile)))
   {
     throw std::runtime_error("LandProcessor::createRS(): " + m_OutputLinearEntitiesVectorFile + ": no such file in the output vector directory");
   }
 
-  if (!openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputDitchesFile).c_str()) and
-      !openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputThalwegsFile).c_str()) and
-      !openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputRivesrFile).c_str()))
+
+  if (!openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputDitchesFile)) and
+      !openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputThalwegsFile)) and
+      !openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputRivesrFile)))
   {
     std::cout << "LandProcessor::createRS(): There are no linear structure files in the input vector directory that could be used to create RS vector" << std::endl;
   }
@@ -4201,7 +4730,7 @@ void LandProcessor::createRS()
 
     LNR = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputLinearEntitiesVectorFile).c_str(), TRUE );
 
-    if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputRSVectorFile).c_str()))
+    if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputRSVectorFile)))
     {
       mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputRSVectorFile).c_str());
     }
@@ -4217,16 +4746,16 @@ void LandProcessor::createRS()
 
     RS = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputRSVectorFile).c_str(), TRUE );
 
-    FieldNamesTab.clear();
+    FieldNamesTable.clear();
 
     RSLayer = RS->GetLayer(0);
     RSLayer->ResetReading();
 
-    FieldNamesTab = {"FlowDist", "Ditches", "Thalwegs", "WaterCs", "DitchesL", "ThalwegsL", "WaterCsL", "SurfToLen"};
+    FieldNamesTable = {"FlowDist", "Ditches", "Thalwegs", "WaterCs", "DitchesL", "ThalwegsL", "WaterCsL", "SurfToLen"};
 
-    for (int i = 0; i < FieldNamesTab.size(); i++)
+    for (int i = 0; i < FieldNamesTable.size(); i++)
     {
-      createField(RSLayer, FieldNamesTab[i].c_str(), OFTReal);
+      createField(RSLayer, FieldNamesTable[i].c_str(), OFTReal);
     }
 
     RSLayer = RS->GetLayer(0);
@@ -4234,14 +4763,14 @@ void LandProcessor::createRS()
 
     while ((RSFeature = RSLayer->GetNextFeature()) != nullptr)
     {
-      for (int i = 0; i < FieldNamesTab.size(); i++)
+      for (int i = 0; i < FieldNamesTable.size(); i++)
       {
-        RSFeature->SetField(FieldNamesTab[i].c_str(), 0);
+        RSFeature->SetField(FieldNamesTable[i].c_str(), 0);
         RSLayer->SetFeature(RSFeature);
       }
     }
 
-    FieldNamesTab.clear();
+    FieldNamesTable.clear();
 
     OGRDataSource::DestroyDataSource(RS);
 
@@ -4288,15 +4817,15 @@ void LandProcessor::createRS()
     // Populating attributes that suppose to contain information about linear structures
     // ================================================================================
 
-    FieldNamesTab.clear();
-    FieldNamesLTab.clear();
+    FieldNamesTable.clear();
+    FieldNamesLTable.clear();
 
-    FieldNamesTab = {"Ditches", "Thalwegs", "WaterCs"};
-    FieldNamesLTab = {"DitchesL", "ThalwegsL", "WaterCsL"};
+    FieldNamesTable = {"Ditches", "Thalwegs", "WaterCs"};
+    FieldNamesLTable = {"DitchesL", "ThalwegsL", "WaterCsL"};
 
     for (int i = 0; i < FileNamesTab.size(); i++)
     {
-      if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(FileNamesTab[i]).c_str()))
+      if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(FileNamesTab[i])))
       {
         DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
         RS = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputRSVectorFile).c_str(), TRUE );
@@ -4316,7 +4845,7 @@ void LandProcessor::createRS()
             {
               Length = Length + SQLLayer->GetFeature(k)->GetFieldAsDouble("Length");
             }
-            RSFeature->SetField(FieldNamesLTab[i].c_str(), Length);
+            RSFeature->SetField(FieldNamesLTable[i].c_str(), Length);
             RSLayer->SetFeature(RSFeature);
           }
           DataSource->ReleaseResultSet(SQLLayer);
@@ -4333,13 +4862,13 @@ void LandProcessor::createRS()
 
     while ((RSFeature = RSLayer->GetNextFeature()) != nullptr)
     {
-      for (int i = 0; i < FieldNamesLTab.size(); i++)
+      for (int i = 0; i < FieldNamesLTable.size(); i++)
       {
         Length = RSFeature->GetFieldAsDouble("Length");
-        LSLength = RSFeature->GetFieldAsDouble(FieldNamesLTab[i].c_str());
+        LSLength = RSFeature->GetFieldAsDouble(FieldNamesLTable[i].c_str());
         if (LSLength > Length)
         {
-          RSFeature->SetField(FieldNamesLTab[i].c_str(), Length);
+          RSFeature->SetField(FieldNamesLTable[i].c_str(), Length);
           RSLayer->SetFeature(RSFeature);
         }
       }
@@ -4354,13 +4883,13 @@ void LandProcessor::createRS()
 
     while ((RSFeature = RSLayer->GetNextFeature()) != nullptr)
     {
-      for (int i = 0; i < FieldNamesLTab.size(); i++)
+      for (int i = 0; i < FieldNamesLTable.size(); i++)
       {
         Length = RSFeature->GetFieldAsDouble("Length");
-        LSLength = RSFeature->GetFieldAsDouble(FieldNamesLTab[i].c_str());
+        LSLength = RSFeature->GetFieldAsDouble(FieldNamesLTable[i].c_str());
         if (LSLength != Length and LSLength < 0.05*6)
         {
-          RSFeature->SetField(FieldNamesLTab[i].c_str(), 0);
+          RSFeature->SetField(FieldNamesLTable[i].c_str(), 0);
           RSLayer->SetFeature(RSFeature);
         }
       }
@@ -4402,35 +4931,33 @@ void LandProcessor::createRS()
 
     while ((RSFeature = RSLayer->GetNextFeature()) != nullptr)
     {
-      for (int i = 0; i < FieldNamesLTab.size(); i++)
+      for (int i = 0; i < FieldNamesLTable.size(); i++)
       {
         Length = RSFeature->GetFieldAsDouble("Length");
-        LSLength = RSFeature->GetFieldAsDouble(FieldNamesLTab[i].c_str());
-        RSFeature->SetField(FieldNamesTab[i].c_str(), LSLength/Length);
+        LSLength = RSFeature->GetFieldAsDouble(FieldNamesLTable[i].c_str());
+        RSFeature->SetField(FieldNamesTable[i].c_str(), LSLength/Length);
         RSLayer->SetFeature(RSFeature);
       }
       RSLayer->SyncToDisk();
     }
 
     FileNamesTab.clear();
-    FieldNamesTab.clear();
-    FieldNamesLTab.clear();
+    FieldNamesTable.clear();
+    FieldNamesLTable.clear();
 
     RSLayer->SyncToDisk();
     OGRDataSource::DestroyDataSource(RS);
   }
 
-  BLOCK_EXIT(__PRETTY_FUNCTION__)
 }
 
-
 // ====================================================================
 // ====================================================================
-
 
 void LandProcessor::createLI()
 {
-  BLOCK_ENTER(__PRETTY_FUNCTION__)
+
+  VERBOSE_MESSAGE(1,"Entering " << __PRETTY_FUNCTION__);
 
   // =====================================================================
   // Variables that are used in this block
@@ -4442,7 +4969,7 @@ void LandProcessor::createLI()
 
   std::string ID, IDTo;
 
-  std::vector <std::string> FieldNamesTab, FieldNamesLTab, FileNamesTab = {m_InputHedgesFile, m_InputGrassBandFile, m_InputBenchesFile};
+  std::vector <std::string> FieldNamesTable, FieldNamesLTable, FileNamesTab = {m_InputHedgesFile, m_InputGrassBandFile, m_InputBenchesFile};
 
   OGRDataSource *DataSource, *LNR, *LI;
   OGRLayer *SQLLayer, *LNRLayer, *LILayer;
@@ -4452,18 +4979,14 @@ void LandProcessor::createLI()
 
   mp_VectorDriver = OGRSFDriverRegistrar::GetRegistrar()->GetDriverByName(m_VectorDriverName.c_str());
 
-  // ======================================================================================
-  // Checking if necessary vector files are present in the appropriate folder
-  // ======================================================================================
-
-  if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputLinearEntitiesVectorFile).c_str()))
+  if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputLinearEntitiesVectorFile)))
   {
     throw std::runtime_error("LandProcessor::createLI(): " + m_OutputLinearEntitiesVectorFile + ": no such file in the output vector directory");
   }
 
-  if (!openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputHedgesFile).c_str()) and
-      !openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputGrassBandFile).c_str()) and
-      !openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputBenchesFile).c_str()))
+  if (!openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputHedgesFile)) and
+      !openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputGrassBandFile)) and
+      !openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputBenchesFile)))
   {
     std::cout << "LandProcessor::createLI(): There are no linear structure files in the input vector directory that could be used to create LI vector" << std::endl;
   }
@@ -4476,7 +4999,7 @@ void LandProcessor::createLI()
 
     LNR = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputLinearEntitiesVectorFile).c_str(), TRUE );
 
-    if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputLIVectorFile).c_str()))
+    if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputLIVectorFile)))
     {
       mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputLIVectorFile).c_str());
     }
@@ -4492,16 +5015,16 @@ void LandProcessor::createLI()
 
     LI = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputLIVectorFile).c_str(), TRUE );
 
-    FieldNamesTab.clear();
+    FieldNamesTable.clear();
 
     LILayer = LI->GetLayer(0);
     LILayer->ResetReading();
 
-    FieldNamesTab = {"FlowDist", "Hedges", "GrassBs", "Benches", "HedgesL", "GrassBsL", "BenchesL", "SurfToLen"};
+    FieldNamesTable = {"FlowDist", "Hedges", "GrassBs", "Benches", "HedgesL", "GrassBsL", "BenchesL", "SurfToLen"};
 
-    for (int i = 0; i < FieldNamesTab.size(); i++)
+    for (int i = 0; i < FieldNamesTable.size(); i++)
     {
-      createField(LILayer, FieldNamesTab[i].c_str(), OFTReal);
+      createField(LILayer, FieldNamesTable[i].c_str(), OFTReal);
     }
 
     LILayer = LI->GetLayer(0);
@@ -4509,14 +5032,14 @@ void LandProcessor::createLI()
 
     while ((LIFeature = LILayer->GetNextFeature()) != nullptr)
     {
-      for (int i = 0; i < FieldNamesTab.size(); i++)
+      for (int i = 0; i < FieldNamesTable.size(); i++)
       {
-        LIFeature->SetField(FieldNamesTab[i].c_str(), 0);
+        LIFeature->SetField(FieldNamesTable[i].c_str(), 0);
         LILayer->SetFeature(LIFeature);
       }
     }
 
-    FieldNamesTab.clear();
+    FieldNamesTable.clear();
 
     OGRDataSource::DestroyDataSource(LI);
 
@@ -4546,7 +5069,7 @@ void LandProcessor::createLI()
     // Setting IDTo attribute in case when there is an RS with the same ID
     // ====================================================================
 
-    if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputRSVectorFile).c_str()))
+    if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputRSVectorFile)))
     {
       DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputRSVectorFile).c_str(), TRUE );
 
@@ -4574,15 +5097,15 @@ void LandProcessor::createLI()
     // Setting attributes that contain information about linear structures attributed to them
     // =========================================================================================
 
-    FieldNamesTab.clear();
-    FieldNamesLTab.clear();
+    FieldNamesTable.clear();
+    FieldNamesLTable.clear();
 
-    FieldNamesTab = {"Hedges", "GrassBs", "Benches"};
-    FieldNamesLTab = {"HedgesL", "GrassBsL", "BenchesL"};
+    FieldNamesTable = {"Hedges", "GrassBs", "Benches"};
+    FieldNamesLTable = {"HedgesL", "GrassBsL", "BenchesL"};
 
     for (int i = 0; i < FileNamesTab.size(); i++)
     {
-      if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(FileNamesTab[i]).c_str()))
+      if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(FileNamesTab[i])))
       {
         DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
         LI = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputLIVectorFile).c_str(), TRUE );
@@ -4602,7 +5125,7 @@ void LandProcessor::createLI()
             {
               Length = Length + SQLLayer->GetFeature(k)->GetFieldAsDouble("Length");
             }
-            LIFeature->SetField(FieldNamesLTab[i].c_str(), Length);
+            LIFeature->SetField(FieldNamesLTable[i].c_str(), Length);
             LILayer->SetFeature(LIFeature);
           }
           DataSource->ReleaseResultSet(SQLLayer);
@@ -4619,13 +5142,13 @@ void LandProcessor::createLI()
 
     while ((LIFeature = LILayer->GetNextFeature()) != nullptr)
     {
-      for (int i = 0; i < FieldNamesLTab.size(); i++)
+      for (int i = 0; i < FieldNamesLTable.size(); i++)
       {
         Length = LIFeature->GetFieldAsDouble("Length");
-        LSLength = LIFeature->GetFieldAsDouble(FieldNamesLTab[i].c_str());
+        LSLength = LIFeature->GetFieldAsDouble(FieldNamesLTable[i].c_str());
         if (LSLength > Length)
         {
-          LIFeature->SetField(FieldNamesLTab[i].c_str(), Length);
+          LIFeature->SetField(FieldNamesLTable[i].c_str(), Length);
           LILayer->SetFeature(LIFeature);
         }
       }
@@ -4640,13 +5163,13 @@ void LandProcessor::createLI()
 
     while ((LIFeature = LILayer->GetNextFeature()) != nullptr)
     {
-      for (int i = 0; i < FieldNamesLTab.size(); i++)
+      for (int i = 0; i < FieldNamesLTable.size(); i++)
       {
         Length = LIFeature->GetFieldAsDouble("Length");
-        LSLength = LIFeature->GetFieldAsDouble(FieldNamesLTab[i].c_str());
+        LSLength = LIFeature->GetFieldAsDouble(FieldNamesLTable[i].c_str());
         if (LSLength != Length and LSLength < 0.05*6)
         {
-          LIFeature->SetField(FieldNamesLTab[i].c_str(), 0);
+          LIFeature->SetField(FieldNamesLTable[i].c_str(), 0);
           LILayer->SetFeature(LIFeature);
         }
       }
@@ -4688,27 +5211,25 @@ void LandProcessor::createLI()
 
     while ((LIFeature = LILayer->GetNextFeature()) != nullptr)
     {
-      for (int i = 0; i < FieldNamesLTab.size(); i++)
+      for (int i = 0; i < FieldNamesLTable.size(); i++)
       {
         Length = LIFeature->GetFieldAsDouble("Length");
-        LSLength = LIFeature->GetFieldAsDouble(FieldNamesLTab[i].c_str());
-        LIFeature->SetField(FieldNamesTab[i].c_str(), LSLength/Length);
+        LSLength = LIFeature->GetFieldAsDouble(FieldNamesLTable[i].c_str());
+        LIFeature->SetField(FieldNamesTable[i].c_str(), LSLength/Length);
         LILayer->SetFeature(LIFeature);
       }
       LILayer->SyncToDisk();
     }
 
     FileNamesTab.clear();
-    FieldNamesTab.clear();
-    FieldNamesLTab.clear();
+    FieldNamesTable.clear();
+    FieldNamesLTable.clear();
 
     LILayer->SyncToDisk();
     OGRDataSource::DestroyDataSource(LI);
   }
 
-  BLOCK_EXIT(__PRETTY_FUNCTION__)
 }
-
 
 // ====================================================================
 // ====================================================================
@@ -4716,7 +5237,8 @@ void LandProcessor::createLI()
 
 void LandProcessor::setSUParameters()
 {
-  BLOCK_ENTER(__PRETTY_FUNCTION__)
+
+  VERBOSE_MESSAGE(1,"Entering " << __PRETTY_FUNCTION__);
 
   // =====================================================================
   // Variables that are used in this block
@@ -4726,7 +5248,7 @@ void LandProcessor::setSUParameters()
 
   std::string ID, IDTo, IDNew, IDToNew;
 
-  std::vector <std::string> FieldNamesTab;
+  std::vector <std::string> FieldNamesTable;
 
   OGRDataSource *DataSource, *SU;
   OGRLayer *SQLLayer, *SULayer;
@@ -4734,11 +5256,7 @@ void LandProcessor::setSUParameters()
   OGRGeometry *SUGeometry;
   OGRFeatureDefn *FeatureDefn;
 
-  // ======================================================================================
-  // Checking if necessary vector files are present in the appropriate folder
-  // ======================================================================================
-
-  if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputSUVectorFile).c_str()))
+  if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputSUVectorFile)))
   {
     throw std::runtime_error("LandProcessor::setSUParameters(): " + m_OutputSUVectorFile + ": no such file in the output vector directory");
   }
@@ -4771,14 +5289,14 @@ void LandProcessor::setSUParameters()
     IDTo = SUFeature->GetFieldAsString("IDTo");
     if (IDTo.find("-") != std::string::npos)
     {
-      if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputLIVectorFile).c_str()))
+      if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputLIVectorFile)))
       {
         m_SQLRequest = "SELECT * FROM " + m_OutputLIVectorFile.substr(0, m_OutputLIVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark;
         SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
         if (SQLLayer->GetFeatureCount() == 0)
         {
           DataSource->ReleaseResultSet(SQLLayer);
-          if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputRSVectorFile).c_str()))
+          if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputRSVectorFile)))
           {
             m_SQLRequest = "SELECT * FROM " + m_OutputRSVectorFile.substr(0, m_OutputRSVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark;
             SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
@@ -5061,18 +5579,15 @@ void LandProcessor::setSUParameters()
   OGRDataSource::DestroyDataSource(DataSource);
   OGRDataSource::DestroyDataSource(SU);
 
-  BLOCK_EXIT(__PRETTY_FUNCTION__)
 }
 
-
 // ====================================================================
 // ====================================================================
-
 
 void LandProcessor::setRSParameters()
 {
 
-  BLOCK_ENTER(__PRETTY_FUNCTION__)
+  VERBOSE_MESSAGE(1,"Entering " << __PRETTY_FUNCTION__);
 
   // =====================================================================
   // Variables that are used in this block
@@ -5086,17 +5601,12 @@ void LandProcessor::setRSParameters()
   OGRLayer *SQLLayer, *RSLayer;
   OGRFeature *RSFeature;
 
-  // ======================================================================================
-  // Checking if necessary vector files are present in the appropriate folder
-  // ======================================================================================
-
-  if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputRSVectorFile).c_str()))
+  if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputRSVectorFile)))
   {
     std::cout << "LandProcessor::setRSParameters(): " + m_OutputRSVectorFile + ": no such file in the output vector directory" << std::endl;
   }
   else
   {
-
     // =====================================================================================
     // Calculate ration S(SU#)/L(RS#) (if possible). For that, we extract the identifier
     // of the SU# that drain into that RS#, look it up in the SU# file, extract its surface and
@@ -5148,18 +5658,15 @@ void LandProcessor::setRSParameters()
 
     OGRDataSource::DestroyDataSource(RS);
   }
-
-  BLOCK_EXIT(__PRETTY_FUNCTION__)
 }
 
-
 // ====================================================================
 // ====================================================================
-
 
 void LandProcessor::setLIParameters()
 {
-  BLOCK_ENTER(__PRETTY_FUNCTION__)
+
+  VERBOSE_MESSAGE(1,"Entering " << __PRETTY_FUNCTION__);
 
   // =====================================================================
   // Variables that are used in this block
@@ -5174,11 +5681,7 @@ void LandProcessor::setLIParameters()
   OGRFeature *LIFeature;
   OGRGeometry *LIGeometry;
 
-  // ======================================================================================
-  // Checking if necessary vector files are present in the appropriate folder
-  // ======================================================================================
-
-  if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputLIVectorFile).c_str()))
+  if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputLIVectorFile)))
   {
     std::cout << "LandProcessor::setLIParameters(): " + m_OutputLIVectorFile + ": no such file in the output vector directory" << std::endl;
   }
@@ -5311,19 +5814,15 @@ void LandProcessor::setLIParameters()
 
     OGRDataSource::DestroyDataSource(LI);
   }
-
-  BLOCK_EXIT(__PRETTY_FUNCTION__)
 }
 
-
 // ====================================================================
 // ====================================================================
-
 
 void LandProcessor::extractPlotsLimits()
 {
-  BLOCK_ENTER(__PRETTY_FUNCTION__)
 
+  VERBOSE_MESSAGE(1,"Entering " << __PRETTY_FUNCTION__);
 
   // =====================================================================
   // Variables that are used in this block
@@ -5333,8 +5832,8 @@ void LandProcessor::extractPlotsLimits()
 
   std::string IDPlotAB, IDPlotBA;
 
-  std::vector <std::string> FieldNamesTab;
-  std::vector <std::string> IDPlotTab;
+  std::vector <std::string> FieldNamesTable;
+  std::vector <std::string> IDPlotTable;
 
   OGRDataSource *DataSource, *Plots, *PlotsLimits;
   OGRLayer *SQLLayer, *PlotsLayer, *PlotsLimitsLayer;
@@ -5342,15 +5841,11 @@ void LandProcessor::extractPlotsLimits()
   OGRGeometry *NewGeometry;
   OGRFeatureDefn *FeatureDefn;
 
-  // ======================================================================================
-  // Checking if necessary vector files are present in the appropriate folder
-  // ======================================================================================
-
   mp_VectorDriver = OGRSFDriverRegistrar::GetRegistrar()->GetDriverByName(m_VectorDriverName.c_str());
 
-  if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputPlotsVectorFile).c_str()))
+  if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputPlotsVectorFile)))
   {
-    throw std::runtime_error("LandProcessor::extractPlotsLimits(): " + getOutputVectorPath(m_OutputPlotsVectorFile) + ": no such file in the output vector directory");
+    throw std::runtime_error("LandProcessor::extractPlotsLimits(): " + m_OutputPlotsVectorFile + ": no such file in the output vector directory");
   }
 
   // ====================================================================
@@ -5362,7 +5857,7 @@ void LandProcessor::extractPlotsLimits()
   PlotsLayer->ResetReading();
   mp_SRS = Plots->GetLayer(0)->GetSpatialRef();
 
-  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputPlotsLimitsVectorFile).c_str()))
+  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputPlotsLimitsVectorFile)))
   {
     mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputPlotsLimitsVectorFile).c_str());
   }
@@ -5370,17 +5865,17 @@ void LandProcessor::extractPlotsLimits()
   PlotsLimits = mp_VectorDriver->CreateDataSource( getOutputVectorPath(m_OutputPlotsLimitsVectorFile).c_str(), nullptr);
   PlotsLimitsLayer = PlotsLimits->CreateLayer( "plotslimits", mp_SRS, wkbLineString, nullptr );
 
-  FieldNamesTab.clear();
-  FieldNamesTab = {"ID", "IDPlotA","IDPlotB"};
+  FieldNamesTable.clear();
+  FieldNamesTable = {"ID", "IDPlotA","IDPlotB"};
 
-  for (int i = 0; i < FieldNamesTab.size(); i++)
+  for (int i = 0; i < FieldNamesTable.size(); i++)
   {
-    createField(PlotsLimitsLayer, FieldNamesTab[i].c_str(), OFTInteger);
+    createField(PlotsLimitsLayer, FieldNamesTable[i].c_str(), OFTInteger);
   }
 
   DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsVectorFile).c_str(), TRUE );
   PlotsLimitsFeature = OGRFeature::CreateFeature(PlotsLimitsLayer->GetLayerDefn());
-  IDPlotTab.clear();
+  IDPlotTable.clear();
 
   while ((PlotsFeature = PlotsLayer->GetNextFeature()) != nullptr)
   {
@@ -5396,40 +5891,38 @@ void LandProcessor::extractPlotsLimits()
       {
         IDPlotB = SQLLayer->GetFeature(i)->GetFieldAsInteger(m_IDFieldName.c_str());
         IDPlotBA = std::to_string(IDPlotB) + "-" + std::to_string(IDPlotA);
-        if (std::find(IDPlotTab.begin(), IDPlotTab.end(), IDPlotBA) == IDPlotTab.end())
+        if (std::find(IDPlotTable.begin(), IDPlotTable.end(), IDPlotBA) == IDPlotTable.end())
         {
-          PlotsLimitsFeature->SetField(FieldNamesTab[0].c_str(), PlotsLimits->GetLayer(0)->GetFeatureCount());
-          PlotsLimitsFeature->SetField(FieldNamesTab[1].c_str(), IDPlotA);
-          PlotsLimitsFeature->SetField(FieldNamesTab[2].c_str(), IDPlotB);
+          PlotsLimitsFeature->SetField(FieldNamesTable[0].c_str(), PlotsLimits->GetLayer(0)->GetFeatureCount());
+          PlotsLimitsFeature->SetField(FieldNamesTable[1].c_str(), IDPlotA);
+          PlotsLimitsFeature->SetField(FieldNamesTable[2].c_str(), IDPlotB);
           NewGeometry = PlotsFeature->GetGeometryRef()->Intersection(SQLLayer->GetFeature(i)->GetGeometryRef());
           PlotsLimitsFeature->SetGeometry(NewGeometry);
           PlotsLimitsLayer->CreateFeature(PlotsLimitsFeature);
           PlotsLimits->SyncToDisk();
           IDPlotAB = std::to_string(IDPlotA) + "-" + std::to_string(IDPlotB);;
-          IDPlotTab.push_back(IDPlotAB);
+          IDPlotTable.push_back(IDPlotAB);
         }
       }
     }
     DataSource->ReleaseResultSet(SQLLayer);
   }
 
-  FieldNamesTab.clear();
-  IDPlotTab.clear();
+  FieldNamesTable.clear();
+  IDPlotTable.clear();
   OGRDataSource::DestroyDataSource(Plots);
   OGRDataSource::DestroyDataSource(DataSource);
   OGRDataSource::DestroyDataSource(PlotsLimits);
 
-  BLOCK_EXIT(__PRETTY_FUNCTION__)
 }
 
-
 // ====================================================================
 // ====================================================================
-
 
 void LandProcessor::attributeLinearStructures()
 {
-  BLOCK_ENTER(__PRETTY_FUNCTION__)
+
+  VERBOSE_MESSAGE(1,"Entering " << __PRETTY_FUNCTION__);
 
   // =====================================================================
   // Variables that are used in this block
@@ -5439,7 +5932,7 @@ void LandProcessor::attributeLinearStructures()
   double Distance;
   std::string Options, FileName;
 
-  std::vector <std::string> FieldNamesTab, FileNamesTab = {m_InputDitchesFile, m_InputHedgesFile, m_InputGrassBandFile, m_InputRivesrFile, m_InputBenchesFile};
+  std::vector <std::string> FieldNamesTable, FileNamesTable = {m_InputDitchesFile, m_InputHedgesFile, m_InputGrassBandFile, m_InputRivesrFile, m_InputBenchesFile};
 
   OGRDataSource *DataSource, *LS, *Plots, *PlotsLimits, *Intersection;
   OGRLayer *SQLLayer, *LSLayer, *PlotsLayer, *PlotsLimitsLayer, *IntersectionLayer;
@@ -5457,27 +5950,27 @@ void LandProcessor::attributeLinearStructures()
 
   mp_VectorDriver = OGRSFDriverRegistrar::GetRegistrar()->GetDriverByName(m_VectorDriverName.c_str());
 
-  // ======================================================================================
-  // Checking if necessary vector files are present in the appropriate folder
-  // ======================================================================================
+  // ==================================================================
+  // Attribution of the original linear structures to the parcel limits
+  // ==================================================================
 
-  if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputPlotsLimitsVectorFile).c_str()))
+  if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputPlotsLimitsVectorFile)))
   {
     throw std::runtime_error("LandProcessor::attributeLinearStructures(): " + m_OutputPlotsLimitsVectorFile + ": no such file in the output vector directory");
   }
 
-  for (int i = 0; i < FileNamesTab.size(); i++)
+  for (int i = 0; i < FileNamesTable.size(); i++)
   {
-    if (FileNamesTab[i].empty() or !openfluid::tools::Filesystem::isFile(getInputVectorPath(FileNamesTab[i]).c_str()))
+    if (FileNamesTable[i].empty() or !openfluid::tools::Filesystem::isFile(getInputVectorPath(FileNamesTable[i])))
     {
-      std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTab[i] << ": no such file in the input vector directory" << std::endl;
+      std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTable[i] << ": no such file in the input vector directory" << std::endl;
     }
     else
     {
-      LS = OGRSFDriverRegistrar::Open( getInputVectorPath(FileNamesTab[i]).c_str(), TRUE );
+      LS = OGRSFDriverRegistrar::Open( getInputVectorPath(FileNamesTable[i]).c_str(), TRUE );
       if (LS->GetDriver()->GetName() != m_VectorDriverName)
       {
-        std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTab[i] << ": vector file is not in ESRI Shapefile format" << std::endl;
+        std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTable[i] << ": vector file is not in ESRI Shapefile format" << std::endl;
         OGRDataSource::DestroyDataSource(LS);
       }
       else
@@ -5486,7 +5979,7 @@ void LandProcessor::attributeLinearStructures()
         VectorSRS = LSLayer->GetSpatialRef();
         if (!VectorSRS)
         {
-          std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTab[i] << ": no spatial reference information is provided for the vector file" << std::endl;
+          std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTable[i] << ": no spatial reference information is provided for the vector file" << std::endl;
           OGRDataSource::DestroyDataSource(LS);
         }
         else
@@ -5494,20 +5987,20 @@ void LandProcessor::attributeLinearStructures()
           VectorDataEPSGCode = VectorSRS->GetAttrValue("AUTHORITY",1);
           if (!VectorDataEPSGCode)
           {
-            std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTab[i] << ": no EPSG code provided for the vector data" << std::endl;
+            std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTable[i] << ": no EPSG code provided for the vector data" << std::endl;
             OGRDataSource::DestroyDataSource(LS);
           }
           else
           {
             if (VectorDataEPSGCode != m_EPSGCode.substr(m_EPSGCode.find(":")+1, m_EPSGCode.length()-1))
             {
-              std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTab[i] << ": vector data EPSG code does not correspond to the default EPSG code" << std::endl;
+              std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTable[i] << ": vector data EPSG code does not correspond to the default EPSG code" << std::endl;
               OGRDataSource::DestroyDataSource(LS);
             }
             else
             {
 
-              m_SQLRequest = "REPACK " + FileNamesTab[i].substr(0, FileNamesTab[i].find("."));
+              m_SQLRequest = "REPACK " + FileNamesTable[i].substr(0, FileNamesTable[i].find("."));
               LS->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
               LSLayer = LS->GetLayer(0);
               LSLayer->ResetReading();
@@ -5525,7 +6018,7 @@ void LandProcessor::attributeLinearStructures()
 
               if (N != 0)
               {
-                std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTab[i] << ": one or several features have invalid geometry" << std::endl;
+                std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTable[i] << ": one or several features have invalid geometry" << std::endl;
                 OGRDataSource::DestroyDataSource(LS);
               }
               else
@@ -5546,25 +6039,21 @@ void LandProcessor::attributeLinearStructures()
 
                 if (N != 0)
                 {
-                  std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTab[i] << ": one or several features have geometry that are not of type 'LINESTRING'" << std::endl;
+                  std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTable[i] << ": one or several features have geometry that are not of type 'LINESTRING'" << std::endl;
                   OGRDataSource::DestroyDataSource(LS);
                 }
                 else
                 {
-
-                  // ==================================================================
-                  // Attribution of the original linear structures to the parcel limits
-                  // ==================================================================
                   LSLayer = LS->GetLayer(0);
                   FeatureDefn = LSLayer->GetLayerDefn();
-                  FieldNamesTab.clear();
+                  FieldNamesTable.clear();
 
                   for (int i = 0; i < FeatureDefn->GetFieldCount(); i++)
                   {
-                    FieldNamesTab.push_back(FeatureDefn->GetFieldDefn(i)->GetNameRef());
+                    FieldNamesTable.push_back(FeatureDefn->GetFieldDefn(i)->GetNameRef());
                   }
 
-                  if(std::find(FieldNamesTab.begin(), FieldNamesTab.end(), m_IDFieldName) != FieldNamesTab.end())
+                  if(std::find(FieldNamesTable.begin(), FieldNamesTable.end(), m_IDFieldName) != FieldNamesTable.end())
                   {
                     for (int i = 0; i < LSLayer->GetFeatureCount(); i++)
                     {
@@ -5584,10 +6073,10 @@ void LandProcessor::attributeLinearStructures()
                     }
                   }
 
-                  FieldNamesTab.clear();
+                  FieldNamesTable.clear();
                   LSLayer->SyncToDisk();
 
-                  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath("linearstructure.shp").c_str()))
+                  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath("linearstructure.shp")))
                   {
                     mp_VectorDriver->DeleteDataSource(getOutputVectorPath("linearstructure.shp").c_str());
                   }
@@ -5600,29 +6089,29 @@ void LandProcessor::attributeLinearStructures()
                   LSLayer = LS->GetLayer(0);
                   FeatureDefn = LSLayer->GetLayerDefn();
 
-                  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath("intersection.shp").c_str()))
+                  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath("intersection.shp")))
                   {
                     mp_VectorDriver->DeleteDataSource(getOutputVectorPath("intersection.shp").c_str());
                   }
 
                   Intersection = mp_VectorDriver->CreateDataSource(getOutputVectorPath("intersection.shp").c_str());
                   IntersectionLayer = Intersection->CreateLayer("intersection", mp_SRS, wkbLineString);
-                  FieldNamesTab.clear();
-                  FieldNamesTab = {m_IDFieldName, "IDLS", "IDPlot", "IDLimit", "PointDist"};
+                  FieldNamesTable.clear();
+                  FieldNamesTable = {m_IDFieldName, "IDLS", "IDPlot", "IDLimit", "PointDist"};
 
-                  for (int i = 0; i < FieldNamesTab.size(); i++)
+                  for (int i = 0; i < FieldNamesTable.size(); i++)
                   {
                     if (i < 4)
                     {
-                      createField(IntersectionLayer, FieldNamesTab[i].c_str(), OFTInteger);
+                      createField(IntersectionLayer, FieldNamesTable[i].c_str(), OFTInteger);
                     }
                     else
                     {
-                      createField(IntersectionLayer, FieldNamesTab[i].c_str(), OFTReal);
+                      createField(IntersectionLayer, FieldNamesTable[i].c_str(), OFTReal);
                     }
                   }
 
-                  FieldNamesTab.clear();
+                  FieldNamesTable.clear();
                   IntersectionLayer->SyncToDisk();
                   LSLayer = LS->GetLayer(0);
                   Plots = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsVectorFile).c_str(), TRUE );
@@ -5709,7 +6198,7 @@ void LandProcessor::attributeLinearStructures()
                   {
                     FID = IntersectionFeature->GetFID();
                     IDPlot = IntersectionFeature->GetFieldAsInteger("IDPlot");
-                    m_SQLRequest = "SELECT *, geometry, ROWID AS RID"
+                    m_SQLRequest = "SELECT *, geometry, ROWID AS RID" // changes here LineInter and EndPointDist, StartPointDist removed
                         " FROM " + m_OutputPlotsLimitsVectorFile.substr(0, m_OutputPlotsLimitsVectorFile.find(".")) + " WHERE IDPlotA == " + std::to_string(IDPlot) + " OR IDPlotB == " + std::to_string(IDPlot) + " ORDER BY "
                         "ST_Distance(geometry,(SELECT ST_Line_Interpolate_Point(ST_LineMerge(geometry), 0.5) FROM intersection WHERE ROWID == " + std::to_string(FID) + " )) ASC, "
                         "ST_Distance(geometry,(SELECT ST_EndPoint(geometry) FROM intersection WHERE ROWID == " + std::to_string(FID) + " )) ASC, "
@@ -5779,9 +6268,9 @@ void LandProcessor::attributeLinearStructures()
                   Intersection->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
                   OGRDataSource::DestroyDataSource(Intersection);
 
-                  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(FileNamesTab[i]).c_str()))
+                  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(FileNamesTable[i])))
                   {
-                    mp_VectorDriver->DeleteDataSource(getOutputVectorPath(FileNamesTab[i]).c_str());
+                    mp_VectorDriver->DeleteDataSource(getOutputVectorPath(FileNamesTable[i]).c_str());
                   }
 
                   Intersection = OGRSFDriverRegistrar::Open( getOutputVectorPath("intersection.shp").c_str(), TRUE );
@@ -5790,7 +6279,7 @@ void LandProcessor::attributeLinearStructures()
                   {
                     m_SQLRequest = "SELECT ST_Union(geometry), " + m_IDFieldName + ", IDLS FROM intersection GROUP BY " + m_IDFieldName + ", IDLS, IDLimit"; // 15/12/16/14:34 Dobavila m_IDFieldName
                     SQLLayer = Intersection->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
-                    FileName = FileNamesTab[i].substr(0, FileNamesTab[i].find(".shp"));
+                    FileName = FileNamesTable[i].substr(0, FileNamesTable[i].find(".shp"));
                     Intersection->CopyLayer(SQLLayer, FileName.c_str(), nullptr);
                     Intersection->ReleaseResultSet(SQLLayer);
                   }
@@ -5800,12 +6289,12 @@ void LandProcessor::attributeLinearStructures()
                   OGRDataSource::DestroyDataSource(Plots);
                   OGRDataSource::DestroyDataSource(DataSource);
 
-                  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath("linearstructure.shp").c_str()))
+                  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath("linearstructure.shp")))
                   {
                     mp_VectorDriver->DeleteDataSource(getOutputVectorPath("linearstructure.shp").c_str());
                   }
 
-                  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath("intersection.shp").c_str()))
+                  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath("intersection.shp")))
                   {
                     mp_VectorDriver->DeleteDataSource(getOutputVectorPath("intersection.shp").c_str());
                   }
@@ -5817,7 +6306,6 @@ void LandProcessor::attributeLinearStructures()
       }
     }
   }
-  BLOCK_EXIT(__PRETTY_FUNCTION__)
 }
 
 
@@ -5870,8 +6358,8 @@ std::pair <double, double> LandProcessor::calculateOffset(double XCoord, double 
   std::pair <double, double> Offset;
 
   Offset = std::make_pair(
-      (XCoord - mp_GeoTransformVal[0])/mp_GeoTransformVal[1],
-      (YCoord - mp_GeoTransformVal[3])/mp_GeoTransformVal[5]);
+      (XCoord - m_GeoTransformVal[0])/m_GeoTransformVal[1],
+      (YCoord - m_GeoTransformVal[3])/m_GeoTransformVal[5]);
 
   return Offset;
 
@@ -5884,10 +6372,9 @@ std::pair <double, double> LandProcessor::calculateOffset(double XCoord, double 
 
 void LandProcessor::getCentroidPoint(OGRGeometry *Geometry)
 {
-
+  delete mp_Point;
   mp_Point = new OGRPoint;
   Geometry->Centroid(mp_Point);
-
 }
 
 
@@ -5915,15 +6402,14 @@ GDALRasterBand* LandProcessor::getRasterBand(GDALDataset *Dataset, unsigned int 
 
 }
 
+
 // =====================================================================
 // =====================================================================
+
 
 void LandProcessor::getGeoTransform(GDALDataset *Dataset)
 {
-
-  mp_GeoTransformVal = new double[6];
-  GDALGetGeoTransform(Dataset, mp_GeoTransformVal);
-
+  GDALGetGeoTransform(Dataset, m_GeoTransformVal);
 }
 
 
@@ -5931,14 +6417,14 @@ void LandProcessor::getGeoTransform(GDALDataset *Dataset)
 // =====================================================================
 
 
-void LandProcessor::checkLinearStructuresVectorData()
+void LandProcessor::checkLinearVectorData()
 {
 
   // =====================================================================
   // Variables that are used in this block
   // =====================================================================
 
-  std::vector <std::string> FieldNamesTab, FileNamesTab = {m_InputDitchesFile, m_InputHedgesFile, m_InputGrassBandFile, m_InputRivesrFile, m_InputBenchesFile, m_InputThalwegsFile};
+  std::vector <std::string> FieldNamesTable, FileNamesTable = {m_InputDitchesFile, m_InputHedgesFile, m_InputGrassBandFile, m_InputRivesrFile, m_InputBenchesFile, m_InputThalwegsFile};
 
   OGRDataSource *LS;
   OGRLayer *LSLayer;
@@ -5949,18 +6435,18 @@ void LandProcessor::checkLinearStructuresVectorData()
 
   mp_VectorDriver = OGRSFDriverRegistrar::GetRegistrar()->GetDriverByName(m_VectorDriverName.c_str());
 
-  for (int i = 0; i < FileNamesTab.size(); i++)
+  for (int i = 0; i < FileNamesTable.size(); i++)
   {
-    if (FileNamesTab[i].empty() or !openfluid::tools::Filesystem::isFile(getInputVectorPath(FileNamesTab[i]).c_str()))
+    if (FileNamesTable[i].empty() or !openfluid::tools::Filesystem::isFile(getInputVectorPath(FileNamesTable[i])))
     {
-      std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTab[i] << ": no such file in the input vector directory" << std::endl;
+      std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTable[i] << ": no such file in the input vector directory" << std::endl;
     }
     else
     {
-      LS = OGRSFDriverRegistrar::Open( getInputVectorPath(FileNamesTab[i]).c_str(), TRUE );
+      LS = OGRSFDriverRegistrar::Open( getInputVectorPath(FileNamesTable[i]).c_str(), TRUE );
       if (LS->GetDriver()->GetName() != m_VectorDriverName)
       {
-        std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTab[i] << ": vector file is not in ESRI Shapefile format" << std::endl;
+        std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTable[i] << ": vector file is not in ESRI Shapefile format" << std::endl;
         OGRDataSource::DestroyDataSource(LS);
       }
       else
@@ -5969,7 +6455,7 @@ void LandProcessor::checkLinearStructuresVectorData()
         VectorSRS = LSLayer->GetSpatialRef();
         if (!VectorSRS)
         {
-          std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTab[i] << ": no spatial reference information is provided for the vector file" << std::endl;
+          std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTable[i] << ": no spatial reference information is provided for the vector file" << std::endl;
           OGRDataSource::DestroyDataSource(LS);
         }
         else
@@ -5977,20 +6463,20 @@ void LandProcessor::checkLinearStructuresVectorData()
           VectorDataEPSGCode = VectorSRS->GetAttrValue("AUTHORITY",1);
           if (!VectorDataEPSGCode)
           {
-            std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTab[i] << ": no EPSG code provided for the vector data" << std::endl;
+            std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTable[i] << ": no EPSG code provided for the vector data" << std::endl;
             OGRDataSource::DestroyDataSource(LS);
           }
           else
           {
             if (VectorDataEPSGCode != m_EPSGCode.substr(m_EPSGCode.find(":")+1, m_EPSGCode.length()-1))
             {
-              std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTab[i] << ": vector data EPSG code does not correspond to the default EPSG code" << std::endl;
+              std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTable[i] << ": vector data EPSG code does not correspond to the default EPSG code" << std::endl;
               OGRDataSource::DestroyDataSource(LS);
             }
             else
             {
 
-              m_SQLRequest = "REPACK " + FileNamesTab[i].substr(0, FileNamesTab[i].find("."));
+              m_SQLRequest = "REPACK " + FileNamesTable[i].substr(0, FileNamesTable[i].find("."));
               LS->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
               LSLayer = LS->GetLayer(0);
               LSLayer->ResetReading();
@@ -5999,15 +6485,15 @@ void LandProcessor::checkLinearStructuresVectorData()
               {
                 if (LSFeature->GetGeometryRef()->IsValid() == 0)
                 {
-                  std::cout << "The feature with FID " << LSFeature->GetFID() << " of the vector file " << FileNamesTab[i] << " has invalid geometry" << std::endl;
+                  std::cout << "The feature with FID " << LSFeature->GetFID() << " of the vector file " << FileNamesTable[i] << " has invalid geometry" << std::endl;
                 }
                 if (LSFeature->GetGeometryRef()->IsSimple() == 0)
                 {
-                  std::cout << "The feature with FID " << LSFeature->GetFID() << " of the vector file " << FileNamesTab[i] << " has geometry that is not simple" << std::endl;
+                  std::cout << "The feature with FID " << LSFeature->GetFID() << " of the vector file " << FileNamesTable[i] << " has geometry that is not simple" << std::endl;
                 }
                 if (LSFeature->GetGeometryRef()->IsEmpty() == 1)
                 {
-                  std::cout << "The feature with FID " << LSFeature->GetFID() << " of the vector file " << FileNamesTab[i] << " has empty geometry" << std::endl;
+                  std::cout << "The feature with FID " << LSFeature->GetFID() << " of the vector file " << FileNamesTable[i] << " has empty geometry" << std::endl;
                 }
               }
 
@@ -6018,9 +6504,10 @@ void LandProcessor::checkLinearStructuresVectorData()
               {
                 if (LSFeature->GetGeometryRef()->getGeometryType() != 2)
                 {
-                  std::cout << "The feature with FID " << LSFeature->GetFID() << " of the vector file " << FileNamesTab[i] << " has geometry that is not of LINESTRING type" << std::endl;
+                  std::cout << "The feature with FID " << LSFeature->GetFID() << " of the vector file " << FileNamesTable[i] << " has geometry that is not of LINESTRING type" << std::endl;
                 }
               }
+              OGRDataSource::DestroyDataSource(LS);
             }
           }
         }
@@ -6041,7 +6528,7 @@ void LandProcessor::checkPolygonVectorData()
   // Variables that are used in this block
   // =====================================================================
 
-  std::vector <std::string> FieldNamesTab, FileNamesTab = {m_InputPlotsFile};
+  std::vector <std::string> FieldNamesTable, FileNamesTable = {m_InputPlotsFile};
 
   OGRDataSource *Polygon;
   OGRLayer *PolygonLayer;
@@ -6052,18 +6539,18 @@ void LandProcessor::checkPolygonVectorData()
 
   mp_VectorDriver = OGRSFDriverRegistrar::GetRegistrar()->GetDriverByName(m_VectorDriverName.c_str());
 
-  for (int i = 0; i < FileNamesTab.size(); i++)
+  for (int i = 0; i < FileNamesTable.size(); i++)
   {
-    if (FileNamesTab[i].empty() or !openfluid::tools::Filesystem::isFile(getInputVectorPath(FileNamesTab[i]).c_str()))
+    if (FileNamesTable[i].empty() or !openfluid::tools::Filesystem::isFile(getInputVectorPath(FileNamesTable[i])))
     {
-      std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTab[i] << ": no such file in the input vector directory" << std::endl;
+      std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTable[i] << ": no such file in the input vector directory" << std::endl;
     }
     else
     {
-      Polygon = OGRSFDriverRegistrar::Open( getInputVectorPath(FileNamesTab[i]).c_str(), TRUE );
+      Polygon = OGRSFDriverRegistrar::Open( getInputVectorPath(FileNamesTable[i]).c_str(), TRUE );
       if (Polygon->GetDriver()->GetName() != m_VectorDriverName)
       {
-        std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTab[i] << ": vector file is not in ESRI Shapefile format" << std::endl;
+        std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTable[i] << ": vector file is not in ESRI Shapefile format" << std::endl;
         OGRDataSource::DestroyDataSource(Polygon);
       }
       else
@@ -6072,7 +6559,7 @@ void LandProcessor::checkPolygonVectorData()
         VectorSRS = PolygonLayer->GetSpatialRef();
         if (!VectorSRS)
         {
-          std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTab[i] << ": no spatial reference information is provided for the vector file" << std::endl;
+          std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTable[i] << ": no spatial reference information is provided for the vector file" << std::endl;
           OGRDataSource::DestroyDataSource(Polygon);
         }
         else
@@ -6080,20 +6567,20 @@ void LandProcessor::checkPolygonVectorData()
           VectorDataEPSGCode = VectorSRS->GetAttrValue("AUTHORITY",1);
           if (!VectorDataEPSGCode)
           {
-            std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTab[i] << ": no EPSG code provided for the vector data" << std::endl;
+            std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTable[i] << ": no EPSG code provided for the vector data" << std::endl;
             OGRDataSource::DestroyDataSource(Polygon);
           }
           else
           {
             if (VectorDataEPSGCode != m_EPSGCode.substr(m_EPSGCode.find(":")+1, m_EPSGCode.length()-1))
             {
-              std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTab[i] << ": vector data EPSG code does not correspond to the default EPSG code" << std::endl;
+              std::cout << "LandProcessor::attributeLinearStructures(): " << FileNamesTable[i] << ": vector data EPSG code does not correspond to the default EPSG code" << std::endl;
               OGRDataSource::DestroyDataSource(Polygon);
             }
             else
             {
 
-              m_SQLRequest = "REPACK " + FileNamesTab[i].substr(0, FileNamesTab[i].find("."));
+              m_SQLRequest = "REPACK " + FileNamesTable[i].substr(0, FileNamesTable[i].find("."));
               Polygon->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
               PolygonLayer = Polygon->GetLayer(0);
               PolygonLayer->ResetReading();
@@ -6102,15 +6589,15 @@ void LandProcessor::checkPolygonVectorData()
               {
                 if (PolygonFeature->GetGeometryRef()->IsValid() == 0)
                 {
-                  std::cout << "The feature with FID " << PolygonFeature->GetFID() << " of the vector file " << FileNamesTab[i] << " has invalid geometry" << std::endl;
+                  std::cout << "The feature with FID " << PolygonFeature->GetFID() << " of the vector file " << FileNamesTable[i] << " has invalid geometry" << std::endl;
                 }
                 if (PolygonFeature->GetGeometryRef()->Boundary()->IsSimple() == 0)
                 {
-                  std::cout << "The feature with FID " << PolygonFeature->GetFID() << " of the vector file " << FileNamesTab[i] << " has geometry that is not simple" << std::endl;
+                  std::cout << "The feature with FID " << PolygonFeature->GetFID() << " of the vector file " << FileNamesTable[i] << " has geometry that is not simple" << std::endl;
                 }
                 if (PolygonFeature->GetGeometryRef()->IsEmpty() == 1)
                 {
-                  std::cout << "The feature with FID " << PolygonFeature->GetFID() << " of the vector file " << FileNamesTab[i] << " has empty geometry" << std::endl;
+                  std::cout << "The feature with FID " << PolygonFeature->GetFID() << " of the vector file " << FileNamesTable[i] << " has empty geometry" << std::endl;
                 }
               }
 
@@ -6121,9 +6608,10 @@ void LandProcessor::checkPolygonVectorData()
               {
                 if (PolygonFeature->GetGeometryRef()->getGeometryType() != 3)
                 {
-                  std::cout << "The feature with FID " << PolygonFeature->GetFID() << " of the vector file " << FileNamesTab[i] << " has  geometry that is not of POLYGON type" << std::endl;
+                  std::cout << "The feature with FID " << PolygonFeature->GetFID() << " of the vector file " << FileNamesTable[i] << " has  geometry that is not of POLYGON type" << std::endl;
                 }
               }
+              OGRDataSource::DestroyDataSource(Polygon);
             }
           }
         }
@@ -6131,5 +6619,4 @@ void LandProcessor::checkPolygonVectorData()
     }
   }
 }
-
 

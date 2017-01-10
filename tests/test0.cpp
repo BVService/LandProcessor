@@ -21,8 +21,6 @@ int main(int argc, char *argv[])
 {
   openfluid::base::Environment::init();
 
-  std::cout << openfluid::base::Environment::getTempDir() << std::endl;
-
 
   openfluid::tools::emptyDirectoryRecursively(TESTS_RESULTS_PATH+"/DardaillonSmall_0");
 

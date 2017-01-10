@@ -94,21 +94,21 @@ class LandProcessor
 
     const std::string m_RasterDriverName = "GTiff";
 
-    OGRSFDriver *mp_VectorDriver;
+    OGRSFDriver *mp_VectorDriver = nullptr;
 
-    OGRSpatialReference *mp_SRS;
+    OGRSpatialReference *mp_SRS = nullptr;
 
-    OGRPoint *mp_Point;
+    OGRPoint *mp_Point = nullptr;
 
-    GDALDriver *mp_RasterDriver;
+    GDALDriver *mp_RasterDriver = nullptr;
 
-    double *mp_GeoTransformVal;
+    double m_GeoTransformVal[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
     bool m_IsReady = true;
 
-    unsigned int m_MinEntSize = 250;
+    unsigned int m_MinEntSize = 250; // minimal entity size (normally in square meters)
 
-    std::string m_SnapDistance = "1.0e-08";
+    std::string m_SnapDistance = "1.0e-08"; // snap distance in meters
 
     std::string m_IDFieldName = "OFLD_ID";
 
@@ -125,9 +125,9 @@ class LandProcessor
 
   public:
 
-	LandProcessor(const std::string& InputPath, const std::string& OutputPath);
+    LandProcessor(const std::string& InputPath, const std::string& OutputPath);
 
-	virtual ~LandProcessor();
+    virtual ~LandProcessor();
 
     bool isReady() const
     { return m_IsReady; }
@@ -140,49 +140,49 @@ class LandProcessor
 
     std::string getInputRasterPath(const std::string& Filename = "") const;
 
-	void preprocessVectorData();
+    void preprocessVectorData();
 
-	void preprocessRasterData();
+    void preprocessRasterData();
 
-	void createSRFandLNR();
+    void createSRFandLNR();
 
-	void setSRFParameters();
+    void setSRFParameters();
 
-	void setLNRParameters();
+    void setLNRParameters();
 
-	void createSU();
+    void createSU();
 
-	void createRS();
+    void createRS();
 
-	void createLI();
+    void createLI();
 
-	void setSUParameters();
+    void setSUParameters();
 
-	void setRSParameters();
+    void setRSParameters();
 
-	void setLIParameters();
+    void setLIParameters();
 
-	void extractPlotsLimits();
+    void extractPlotsLimits();
 
-	void attributeLinearStructures();
+    void attributeLinearStructures();
 
-	int extractFromRasterToPoint(GDALDataset *Dataset, unsigned int RasterBandIndex);
+    int extractFromRasterToPoint(GDALDataset *Dataset, unsigned int RasterBandIndex);
 
-	void createField(OGRLayer *LayerName, std::string FieldName, OGRFieldType FieldType);
+    void createField(OGRLayer *LayerName, std::string FieldName, OGRFieldType FieldType);
 
-	void getCentroidPoint(OGRGeometry *Geometry);
+    void getCentroidPoint(OGRGeometry *Geometry);
 
-	std::pair <double, double> getCoordinatesOfPoint();
+    std::pair <double, double> getCoordinatesOfPoint();
 
-	std::pair <double, double> calculateOffset(double XCoord, double YCoord);
+    std::pair <double, double> calculateOffset(double XCoord, double YCoord);
 
-	GDALRasterBand* getRasterBand(GDALDataset *Dataset, unsigned int RastreBandIndex);
+    GDALRasterBand* getRasterBand(GDALDataset *Dataset, unsigned int RastreBandIndex);
 
-	void getGeoTransform(GDALDataset *Dataset);
+    void getGeoTransform(GDALDataset *Dataset);
 
-	void checkLinearStructuresVectorData();
+    void checkLinearVectorData();
 
-	void checkPolygonVectorData();
+    void checkPolygonVectorData();
 
 };
 

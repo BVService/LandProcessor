@@ -11,11 +11,17 @@
 
 
 #include <iostream>
+#include <sstream>
+
+#ifndef VERBOSE_LEVEL
+#  define VERBOSE_LEVEL 0
+#endif
 
 
-#define BLOCK_ENTER(name) std::cout << "== Entering " << (name) << std::endl;
+#define _STREAMTOSTRING(_stream) ((static_cast<std::ostringstream&>(std::ostringstream().flush() << _stream)).str())
 
-#define BLOCK_EXIT(name) std::cout << "== Exiting " << (name) << std::endl;
+#define VERBOSE_MESSAGE(level,msg) \
+  if ((level) <= VERBOSE_LEVEL) std::cout << std::string(2*(level),' ') << (_STREAMTOSTRING(msg)) << std::endl;
 
 
 #endif /* __HELPERS_HPP__ */

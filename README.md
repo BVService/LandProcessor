@@ -35,9 +35,11 @@ make
 
 #TODO
 
+- [ ] Remove absolute paths for temporary files, use openfluid::base::Environment::getTempDir() instead
 - [ ] Introduce install and packaging using CPack in CMake configuration
 - [ ] Improve management of input and output for easier implementation of 2 stages processing
 - [ ] Refactor main source code to be more easily maintainable
-- [ ] Introduce correct land use code in tests
+- [ ] Introduce correct land use codes in tests
+- [ ] Improve performance by moving invariants out of loops
      
 
