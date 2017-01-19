@@ -1,9 +1,27 @@
 /*
- * LandProcessor.cpp
- *
- *  Created on: 8 sept. 2016
- *      Author: ezadonina
- */
+    LandProcessor
+    Copyright (C) 2016- INRA
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+
+/**
+  @file LandProcessor.cpp
+  @author Ekaterina Zadonina <ekaterina.zadonina@inra.fr>
+  @author Jean-Christophe FABRE <jean-christophe.fabre@inra.fr>
+*/
 
 
 #include <string>
@@ -28,14 +46,21 @@
 #include "Helpers.hpp"
 
 
-LandProcessor::LandProcessor(const std::string& InputPath, const std::string& OutputPath):
-  m_InputPath(InputPath), m_OutputPath(OutputPath)
+LandProcessor::LandProcessor(const std::string& InputPath,
+                             const std::string& OutputPath,
+                             const std::string& ReleasePath):
+  m_InputPath(InputPath), m_OutputPath(OutputPath), m_ReleasePath(ReleasePath)
 {
   VERBOSE_MESSAGE(1,"Entering " << __PRETTY_FUNCTION__);
+
 
   openfluid::tools::Filesystem::makeDirectory(OutputPath);
   openfluid::tools::Filesystem::makeDirectory(getOutputVectorPath());
   openfluid::tools::Filesystem::makeDirectory(getOutputRasterPath());
+
+  openfluid::tools::Filesystem::makeDirectory(ReleasePath);
+  openfluid::tools::Filesystem::makeDirectory(getReleaseVectorPath());
+  openfluid::tools::Filesystem::makeDirectory(getReleaseRasterPath());
 
   m_IsReady = m_IsReady && openfluid::tools::Filesystem::isDirectory(getInputVectorPath());
   m_IsReady = m_IsReady && openfluid::tools::Filesystem::isDirectory(getInputRasterPath());
@@ -66,14 +91,9 @@ LandProcessor::~LandProcessor()
 // =====================================================================
 
 
-std::string LandProcessor::getOutputVectorPath(const std::string& Filename) const
+std::string LandProcessor::getLayerNameFromFilename(const std::string& Filename)
 {
-  std::string Path = m_OutputPath+"/"+m_VectorDir;
-
-  if (!Filename.empty())
-    Path += "/"+Filename;
-
-  return Path;
+  return Filename.substr(0,Filename.find("."));
 }
 
 
@@ -97,21 +117,6 @@ std::string LandProcessor::getInputVectorPath(const std::string& Filename) const
 // =====================================================================
 
 
-std::string LandProcessor::getOutputRasterPath(const std::string& Filename) const
-{
-  std::string Path = m_OutputPath+"/"+m_RasterDir;
-
-  if (!Filename.empty())
-    Path += "/"+Filename;
-
-  return Path;
-}
-
-
-// =====================================================================
-// =====================================================================
-
-
 std::string LandProcessor::getInputRasterPath(const std::string& Filename) const
 {
   std::string Path = m_InputPath+"/"+m_RasterDir;
@@ -128,6 +133,76 @@ std::string LandProcessor::getInputRasterPath(const std::string& Filename) const
 // =====================================================================
 
 
+std::string LandProcessor::getOutputVectorPath(const std::string& Filename) const
+{
+  std::string Path = m_OutputPath+"/"+m_VectorDir;
+
+  if (!Filename.empty())
+    Path += "/"+Filename;
+
+  return Path;
+
+}
+
+
+// =====================================================================
+// =====================================================================
+
+
+std::string LandProcessor::getOutputRasterPath(const std::string& Filename) const
+{
+  std::string Path = m_OutputPath+"/"+m_RasterDir;
+
+  if (!Filename.empty())
+    Path += "/"+Filename;
+
+  return Path;
+
+}
+
+
+// =====================================================================
+// =====================================================================
+
+
+std::string LandProcessor::getReleaseVectorPath(const std::string& Filename) const
+{
+  std::string Path = m_ReleasePath+"/"+m_VectorDir;
+
+  if (!Filename.empty())
+    Path += "/"+Filename;
+
+  return Path;
+}
+
+
+// =====================================================================
+// =====================================================================
+
+
+std::string LandProcessor::getReleaseRasterPath(const std::string& Filename) const
+{
+  std::string Path = m_ReleasePath+"/"+m_RasterDir;
+
+  if (!Filename.empty())
+    Path += "/"+Filename;
+
+  return Path;
+}
+
+
+// =====================================================================
+// =====================================================================
+
+
+/**
+  @internal
+  <hr>
+  Files
+    - m_InputPlotsVectorFile
+    - m_InputDEMFile
+    - m_OutputPlotsVectorFile
+*/
 void LandProcessor::preprocessVectorData()
 {
 
@@ -155,16 +230,16 @@ void LandProcessor::preprocessVectorData()
 
   mp_VectorDriver = OGRSFDriverRegistrar::GetRegistrar()->GetDriverByName(m_VectorDriverName.c_str());
 
-  if (!openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputPlotsFile)))
+  if (!openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputPlotsVectorFile)))
   {
-    throw std::runtime_error("LandProcessor::preprocessVectorData(): " + m_InputPlotsFile + ": there is no such file input vector directory");
+    throw std::runtime_error("LandProcessor::preprocessVectorData(): " + m_InputPlotsVectorFile + ": there is no such file input vector directory");
   }
 
-  Plots = OGRSFDriverRegistrar::Open( getInputVectorPath(m_InputPlotsFile).c_str(), TRUE );
+  Plots = OGRSFDriverRegistrar::Open( getInputVectorPath(m_InputPlotsVectorFile).c_str(), TRUE );
 
   if (Plots->GetDriver()->GetName() != m_VectorDriverName)
   {
-    throw std::runtime_error("LandProcessor::preprocessVectorData(): " + m_InputPlotsFile + ": vector file is not in ESRI Shapefile format");
+    throw std::runtime_error("LandProcessor::preprocessVectorData(): " + m_InputPlotsVectorFile + ": vector file is not in ESRI Shapefile format");
   }
 
   PlotsLayer = Plots->GetLayer(0);
@@ -172,19 +247,19 @@ void LandProcessor::preprocessVectorData()
 
   if (!VectorSRS)
   {
-    throw std::runtime_error("LandProcessor::preprocessVectorData(): " + m_InputPlotsFile + ": no spatial reference information is provided for the vector file");
+    throw std::runtime_error("LandProcessor::preprocessVectorData(): " + m_InputPlotsVectorFile + ": no spatial reference information is provided for the vector file");
   }
 
   VectorDataEPSGCode = VectorSRS->GetAttrValue("AUTHORITY",1);
 
   if (!VectorDataEPSGCode)
   {
-    throw std::runtime_error("LandProcessor::preprocessVectorData(): " + m_InputPlotsFile + ": no EPSG code provided for the vector data");
+    throw std::runtime_error("LandProcessor::preprocessVectorData(): " + m_InputPlotsVectorFile + ": no EPSG code provided for the vector data");
   }
 
   if (VectorDataEPSGCode != m_EPSGCode.substr(m_EPSGCode.find(":")+1, m_EPSGCode.length()-1))
   {
-    throw std::runtime_error("LandProcessor::preprocessVectorData(): " + m_InputPlotsFile + ":  vector data EPSG code does not correspond to the default EPSG code");
+    throw std::runtime_error("LandProcessor::preprocessVectorData(): " + m_InputPlotsVectorFile + ":  vector data EPSG code does not correspond to the default EPSG code");
   }
 
   if (!openfluid::tools::Filesystem::isFile(getInputRasterPath(m_InputDEMFile)))
@@ -217,7 +292,9 @@ void LandProcessor::preprocessVectorData()
     throw std::runtime_error("LandProcessor::preprocessVectorData(): " + m_InputDEMFile + ": raster data EPSG code does not correspond to the default EPSG code");
   }
 
-  m_SQLRequest = "REPACK " + m_InputPlotsFile.substr(0, m_InputPlotsFile.find("."));
+  const std::string InputPlotsLayerName = getLayerNameFromFilename(m_InputPlotsVectorFile);
+
+  m_SQLRequest = "REPACK " + InputPlotsLayerName;
   Plots->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
   PlotsLayer = Plots->GetLayer(0);
   PlotsLayer->ResetReading();
@@ -226,7 +303,7 @@ void LandProcessor::preprocessVectorData()
   {
     if (PlotsFeature->GetGeometryRef()->IsValid() == 0)
     {
-      throw std::runtime_error("LandProcessor::preprocessVectorData(): " + m_InputPlotsFile + ": one or several features have invalid geometry");
+      throw std::runtime_error("LandProcessor::preprocessVectorData(): " + m_InputPlotsVectorFile + ": one or several features have invalid geometry");
     }
   }
 
@@ -237,7 +314,7 @@ void LandProcessor::preprocessVectorData()
   {
     if (PlotsFeature->GetGeometryRef()->getGeometryType() != 3)
     {
-      throw std::runtime_error("LandProcessor::preprocessVectorData(): " + m_InputPlotsFile + ": one or several features have geometry that are not of type 'POLYGON'");
+      throw std::runtime_error("LandProcessor::preprocessVectorData(): " + m_InputPlotsVectorFile + ": one or several features have geometry that are not of type 'POLYGON'");
     }
   }
 
@@ -283,7 +360,7 @@ void LandProcessor::preprocessVectorData()
   // Correcting overlaps and gaps between polygons, if at all possible
   // =====================================================================
 
-  Plots = OGRSFDriverRegistrar::Open( getInputVectorPath(m_InputPlotsFile).c_str(), TRUE );
+  Plots = OGRSFDriverRegistrar::Open( getInputVectorPath(m_InputPlotsVectorFile).c_str(), TRUE );
 
   PlotsLayer = Plots->GetLayer(0);
   PlotsLayer->ResetReading();
@@ -302,10 +379,10 @@ void LandProcessor::preprocessVectorData()
       PlotsGeometry = PlotsFeature->GetGeometryRef();
       DataSource = OGRSFDriverRegistrar::Open( getInputVectorPath().c_str(), TRUE );
       FIDA = PlotsFeature->GetFID();
-      m_SQLRequest = "SELECT *, ROWID AS RID FROM " + m_InputPlotsFile.substr(0, m_InputPlotsFile.find(".")) + " WHERE "
-          "ST_Overlaps(geometry, (SELECT geometry FROM " + m_InputPlotsFile.substr(0, m_InputPlotsFile.find(".")) + " WHERE ROWID == " + std::to_string(PlotsFeature->GetFID()) + ")) AND ROWID != " + std::to_string(PlotsFeature->GetFID()) + " AND "
-          " ST_GeometryType(ST_Intersection(geometry, (SELECT geometry FROM " + m_InputPlotsFile.substr(0, m_InputPlotsFile.find(".")) + " WHERE ROWID == " + std::to_string(PlotsFeature->GetFID()) + "))) != " + m_QMark + "LINESTRING" + m_QMark + " AND "
-          "ST_GeometryType(ST_Intersection(geometry, (SELECT geometry FROM " + m_InputPlotsFile.substr(0, m_InputPlotsFile.find(".")) + " WHERE ROWID == " + std::to_string(PlotsFeature->GetFID()) + "))) != " + m_QMark + "MULTILINESTRING" + m_QMark;
+      m_SQLRequest = "SELECT *, ROWID AS RID FROM " + InputPlotsLayerName + " WHERE "
+          "ST_Overlaps(geometry, (SELECT geometry FROM " + InputPlotsLayerName + " WHERE ROWID == " + std::to_string(PlotsFeature->GetFID()) + ")) AND ROWID != " + std::to_string(PlotsFeature->GetFID()) + " AND "
+          " ST_GeometryType(ST_Intersection(geometry, (SELECT geometry FROM " + InputPlotsLayerName + " WHERE ROWID == " + std::to_string(PlotsFeature->GetFID()) + "))) != " + m_QMark + "LINESTRING" + m_QMark + " AND "
+          "ST_GeometryType(ST_Intersection(geometry, (SELECT geometry FROM " + InputPlotsLayerName + " WHERE ROWID == " + std::to_string(PlotsFeature->GetFID()) + "))) != " + m_QMark + "MULTILINESTRING" + m_QMark;
       SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
       if (SQLLayer->GetFeatureCount() != 0)
       {
@@ -351,10 +428,10 @@ void LandProcessor::preprocessVectorData()
       PlotsGeometry = PlotsFeature->GetGeometryRef();
       DataSource = OGRSFDriverRegistrar::Open( getInputVectorPath().c_str(), TRUE );
       FIDA = PlotsFeature->GetFID();
-      m_SQLRequest = "SELECT *, ROWID AS RID FROM " + m_InputPlotsFile.substr(0, m_InputPlotsFile.find(".")) + " WHERE "
-          "ST_Overlaps(geometry, (SELECT geometry FROM " + m_InputPlotsFile.substr(0, m_InputPlotsFile.find(".")) + " WHERE ROWID == " + std::to_string(PlotsFeature->GetFID()) + ")) AND ROWID != " + std::to_string(PlotsFeature->GetFID()) + " AND "
-          " ST_GeometryType(ST_Intersection(geometry, (SELECT geometry FROM " + m_InputPlotsFile.substr(0, m_InputPlotsFile.find(".")) + " WHERE ROWID == " + std::to_string(PlotsFeature->GetFID()) + "))) != " + m_QMark + "LINESTRING" + m_QMark + " AND "
-          "ST_GeometryType(ST_Intersection(geometry, (SELECT geometry FROM " + m_InputPlotsFile.substr(0, m_InputPlotsFile.find(".")) + " WHERE ROWID == " + std::to_string(PlotsFeature->GetFID()) + "))) != " + m_QMark + "MULTILINESTRING" + m_QMark;
+      m_SQLRequest = "SELECT *, ROWID AS RID FROM " + InputPlotsLayerName + " WHERE "
+          "ST_Overlaps(geometry, (SELECT geometry FROM " + InputPlotsLayerName + " WHERE ROWID == " + std::to_string(PlotsFeature->GetFID()) + ")) AND ROWID != " + std::to_string(PlotsFeature->GetFID()) + " AND "
+          " ST_GeometryType(ST_Intersection(geometry, (SELECT geometry FROM " + InputPlotsLayerName + " WHERE ROWID == " + std::to_string(PlotsFeature->GetFID()) + "))) != " + m_QMark + "LINESTRING" + m_QMark + " AND "
+          "ST_GeometryType(ST_Intersection(geometry, (SELECT geometry FROM " + InputPlotsLayerName + " WHERE ROWID == " + std::to_string(PlotsFeature->GetFID()) + "))) != " + m_QMark + "MULTILINESTRING" + m_QMark;
       SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
       if (SQLLayer->GetFeatureCount() != 0)
       {
@@ -382,9 +459,13 @@ void LandProcessor::preprocessVectorData()
   GRASS.setOutputFile("/tmp/bvservice-grass/procesvectordata.out");
   GRASS.setErrorFile("/tmp/bvservice-grass/processvectordata.err");
 
-  GRASS.appendTask("v.in.ogr", {{"input", QString::fromStdString(getInputVectorPath(m_InputPlotsFile))}, {"output", "plotssnapped"}, {"snap", QString::fromStdString(m_SnapDistance)}}, {"--o"});
+  GRASS.appendTask("v.in.ogr", {{"input", QString::fromStdString(getInputVectorPath(m_InputPlotsVectorFile))},
+                                {"output", "plotssnapped"}, {"snap", QString::fromStdString(m_SnapDistance)}},
+                   {"--o"});
 
-  GRASS.appendTask("r.in.gdal",{{"input",QString::fromStdString(getInputRasterPath(m_InputDEMFile))}, {"output","dem"}}, {"--o"});
+  GRASS.appendTask("r.in.gdal",{{"input",QString::fromStdString(getInputRasterPath(m_InputDEMFile))},
+                                {"output","dem"}},
+                   {"--o"});
 
   GRASS.appendTask("g.region", {{"raster", "dem"}});
 
@@ -393,7 +474,9 @@ void LandProcessor::preprocessVectorData()
     mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputPlotsVectorFile).c_str());
   }
 
-  GRASS.appendTask("v.out.ogr", {{"input", "plotssnapped"}, {"type", "area"}, {"output", QString::fromStdString(getOutputVectorPath(m_OutputPlotsVectorFile))}}, {"-s"});
+  GRASS.appendTask("v.out.ogr", {{"input", "plotssnapped"}, {"type", "area"},
+                                 {"output", QString::fromStdString(getOutputVectorPath(m_OutputPlotsVectorFile))}},
+                   {"-s"});
 
   if (GRASS.runJob() != 0)
   {
@@ -404,7 +487,7 @@ void LandProcessor::preprocessVectorData()
   // Removing attributes that will not be used in the processing
   // =====================================================================
 
-  Plots = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsVectorFile).c_str(), TRUE );
+  Plots = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsVectorFile).c_str(), TRUE );
   PlotsLayer = Plots->GetLayer(0);
   FeatureDefn = PlotsLayer->GetLayerDefn();
 
@@ -439,6 +522,23 @@ void LandProcessor::preprocessVectorData()
 // =====================================================================
 
 
+/**
+  @internal
+  <hr>
+  Files
+    - m_InputDEMFile
+    - m_OutputPlotsVectorFile
+    - m_OutputPlotsRasterVectorFile
+    - m_OutputDEMFile
+    - m_OutputCatchmentsRasterFile
+    - m_OutputDownslopeRasterFile
+    - m_OutputPlotsRasterFile
+    - m_OutputSlopeRasterFile
+    - m_OutputDrainageRasterFile
+    - m_OutputIDRasterFile
+    - m_OutputOutletsRasterFile
+    - m_OutputReceiversRasterFile
+*/
 void LandProcessor::preprocessRasterData()
 {
 
@@ -550,14 +650,14 @@ void LandProcessor::preprocessRasterData()
   GRASS.appendTask("v.db.dropcolumn", {{"map", QString::fromStdString("plotsrastervector")},
                                        {"column", QString::fromStdString("label")}});
 
-  if (openfluid::tools::Filesystem::isFile(getOutputRasterPath("plotsrastervector.shp")))
+  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputPlotsRasterVectorFile)))
   {
-    mp_VectorDriver->DeleteDataSource(getOutputVectorPath("plotsrastervector.shp").c_str());
+    mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputPlotsRasterVectorFile).c_str());
   }
 
   GRASS.appendTask("v.out.ogr", {{"input", QString::fromStdString("plotsrastervector")},
                                  {"type", QString::fromStdString("area")},
-                                 {"output", QString::fromStdString(getOutputVectorPath("plotsrastervector.shp"))},
+                                 {"output", QString::fromStdString(getOutputVectorPath(m_OutputPlotsRasterVectorFile))},
                                  {"format", QString::fromStdString("ESRI_Shapefile")}},
                    {"-s"});
 
@@ -679,13 +779,13 @@ void LandProcessor::preprocessRasterData()
   // Outlets raster creation
   // =====================================================================
 
-  PlotsR = (GDALDataset *) GDALOpen( getOutputRasterPath(m_OutputPlotsRasterFile).c_str(), GA_ReadOnly );
+  PlotsR = (GDALDataset *) GDALOpen(getOutputRasterPath(m_OutputPlotsRasterFile).c_str(), GA_ReadOnly );
   PlotsRBand = PlotsR->GetRasterBand(1);
 
-  Drainage = (GDALDataset *) GDALOpen( getOutputRasterPath(m_OutputDrainageRasterFile).c_str(), GA_ReadOnly );
+  Drainage = (GDALDataset *) GDALOpen(getOutputRasterPath(m_OutputDrainageRasterFile).c_str(), GA_ReadOnly );
   DrainageBand = Drainage->GetRasterBand(1);
 
-  RasterID = (GDALDataset *) GDALOpen( getOutputRasterPath(m_OutputIDRasterFile).c_str(), GA_ReadOnly );
+  RasterID = (GDALDataset *) GDALOpen(getOutputRasterPath(m_OutputIDRasterFile).c_str(), GA_ReadOnly );
   RasterIDBand = RasterID->GetRasterBand(1);
 
   if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputOutletsRasterFile)))
@@ -693,7 +793,7 @@ void LandProcessor::preprocessRasterData()
     mp_RasterDriver->Delete(getOutputRasterPath(m_OutputOutletsRasterFile).c_str());
   }
 
-  Outlets = mp_RasterDriver->Create( getOutputRasterPath(m_OutputOutletsRasterFile).c_str(), DEM->GetRasterXSize(), DEM->GetRasterYSize(), 1, GDT_Int32, Options );
+  Outlets = mp_RasterDriver->Create(getOutputRasterPath(m_OutputOutletsRasterFile).c_str(), DEM->GetRasterXSize(), DEM->GetRasterYSize(), 1, GDT_Int32, Options );
   OutletsBand = Outlets->GetRasterBand(1);
 
   PlotsUpperRow = (int*) CPLMalloc(sizeof(int) *DEM->GetRasterXSize());
@@ -936,7 +1036,8 @@ void LandProcessor::preprocessRasterData()
     mp_RasterDriver->Delete(getOutputRasterPath(m_OutputCatchmentsRasterFile).c_str());
   }
 
-  Catchments = mp_RasterDriver->Create( getOutputRasterPath(m_OutputCatchmentsRasterFile).c_str(), DEM->GetRasterXSize(), DEM->GetRasterYSize(), 1, GDT_Int32, Options );
+  Catchments = mp_RasterDriver->Create(getOutputRasterPath(m_OutputCatchmentsRasterFile).c_str(),
+                                       DEM->GetRasterXSize(), DEM->GetRasterYSize(), 1, GDT_Int32, Options );
   CatchmentsBand = Catchments->GetRasterBand(1);
 
   OutletsMiddleRow = (int*) CPLMalloc(sizeof(int) *DEM->GetRasterXSize());
@@ -953,7 +1054,8 @@ void LandProcessor::preprocessRasterData()
       }
       else
       {
-        OutletsBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, OutletsMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+        OutletsBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, OutletsMiddleRow, DEM->GetRasterXSize(),
+                               1, GDT_Int32, 0, 0 );
         if (OutletsMiddleRow[j] != -9999)
         {
           Row[j] = OutletsMiddleRow[j];
@@ -964,7 +1066,8 @@ void LandProcessor::preprocessRasterData()
         }
       }
     }
-    CatchmentsBand->RasterIO( GF_Write, 0, i, DEM->GetRasterXSize(), 1, Row, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+    CatchmentsBand->RasterIO( GF_Write, 0, i, DEM->GetRasterXSize(), 1, Row, DEM->GetRasterXSize(),
+                              1, GDT_Int32, 0, 0 );
   }
 
   CPLFree(OutletsMiddleRow);
@@ -976,7 +1079,7 @@ void LandProcessor::preprocessRasterData()
   Catchments->SetProjection(DEM->GetProjectionRef());
   GDALClose( Catchments );
 
-  Catchments = (GDALDataset *) GDALOpen( getOutputRasterPath(m_OutputCatchmentsRasterFile).c_str(), GA_Update );
+  Catchments = (GDALDataset *) GDALOpen(getOutputRasterPath(m_OutputCatchmentsRasterFile).c_str(), GA_Update );
   CatchmentsBand = Catchments->GetRasterBand(1);
 
   CatchmentsUpperRow = (int*) CPLMalloc(sizeof(int) *DEM->GetRasterXSize());
@@ -995,7 +1098,8 @@ void LandProcessor::preprocessRasterData()
 
   for (int i = 0; i < DEM->GetRasterYSize(); i++)
   {
-    PlotsRBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, PlotsMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+    PlotsRBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, PlotsMiddleRow, DEM->GetRasterXSize(),
+                          1, GDT_Int32, 0, 0 );
     for (int j = 0; j < DEM->GetRasterXSize(); j++)
     {
       if (PlotsMiddleRow[j] != -9999)
@@ -1009,7 +1113,8 @@ void LandProcessor::preprocessRasterData()
 
   for (int i = 0; i < DEM->GetRasterYSize(); i++)
   {
-    CatchmentsBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, CatchmentsMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+    CatchmentsBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, CatchmentsMiddleRow, DEM->GetRasterXSize(),
+                              1, GDT_Int32, 0, 0 );
     for (int j = 0; j < DEM->GetRasterXSize(); j++)
     {
       if (CatchmentsMiddleRow[j] != -9999)
@@ -1142,6 +1247,27 @@ void LandProcessor::preprocessRasterData()
 // =====================================================================
 
 
+/**
+  @internal
+  <hr>
+  Files
+    - m_InputPlotsVectorFile
+    - m_OutputCatchmentsRasterFile
+    - m_OutputDownslopeRasterFile
+    - m_OutputPlotsRasterFile
+    - m_OutputOutletsRasterFile
+    - m_OutputReceiversRasterFile
+    - m_OutputCatchmentsGroupedVectorFile
+    - m_OutputCatchmentsVectorFile
+    - m_OutputEntitiesGroupedVectorFile
+    - m_OutputEntitiesVectorFile
+    - m_OutputLinearEntitiesVectorFile
+    - m_OutputSurfaceEntitiesVectorFile
+    - m_OutputPlotsVectorFile
+    - m_OutputOutletsVectorFile
+    - m_OutputReceiversVectorFile
+    - m_OutputPlotsAndEntitiesUnionVectorFile
+*/
 void LandProcessor::createSRFandLNR()
 {
 
@@ -1212,7 +1338,7 @@ void LandProcessor::createSRFandLNR()
   // Creating a catchment vector file based on the catchment raster (IDCat is the catchment ID)
   // ================================================================================================
 
-  Plots = OGRSFDriverRegistrar::Open( getInputVectorPath(m_InputPlotsFile).c_str(), TRUE );
+  Plots = OGRSFDriverRegistrar::Open( getInputVectorPath(m_InputPlotsVectorFile).c_str(), TRUE );
 
   mp_SRS = Plots->GetLayer(0)->GetSpatialRef();
 
@@ -1266,7 +1392,7 @@ void LandProcessor::createSRFandLNR()
 
   GDALClose( Dataset );
 
-  Dataset = (GDALDataset *) GDALOpen( getOutputRasterPath(m_OutputOutletsRasterFile).c_str(), GA_ReadOnly );
+  Dataset = (GDALDataset *) GDALOpen(getOutputRasterPath(m_OutputOutletsRasterFile).c_str(), GA_ReadOnly );
   ERR = GDALPolygonize(getRasterBand(Dataset,1), nullptr, OutletsLayer, 0, nullptr, nullptr, nullptr);
 
   OutletsLayer->SyncToDisk();
@@ -1286,7 +1412,7 @@ void LandProcessor::createSRFandLNR()
 
   GDALClose( Dataset );
 
-  Dataset = (GDALDataset *) GDALOpen( getOutputRasterPath(m_OutputPlotsRasterFile).c_str(), GA_ReadOnly );
+  Dataset = (GDALDataset *) GDALOpen(getOutputRasterPath(m_OutputPlotsRasterFile).c_str(), GA_ReadOnly );
   getGeoTransform(Dataset);
 
   OutletsLayer->ResetReading();
@@ -1318,7 +1444,7 @@ void LandProcessor::createSRFandLNR()
 
   GDALClose( Dataset );
 
-  Dataset = (GDALDataset *) GDALOpen( getOutputRasterPath(m_OutputDownslopeRasterFile).c_str(), GA_ReadOnly );
+  Dataset = (GDALDataset *) GDALOpen(getOutputRasterPath(m_OutputDownslopeRasterFile).c_str(), GA_ReadOnly );
   getGeoTransform(Dataset);
 
   OutletsLayer->ResetReading();
@@ -1370,7 +1496,7 @@ void LandProcessor::createSRFandLNR()
 
   GDALClose( Dataset );
 
-  Dataset = (GDALDataset *) GDALOpen( getOutputRasterPath(m_OutputReceiversRasterFile).c_str(), GA_ReadOnly );
+  Dataset = (GDALDataset *) GDALOpen(getOutputRasterPath(m_OutputReceiversRasterFile).c_str(), GA_ReadOnly );
   ERR = GDALPolygonize(getRasterBand(Dataset,1), nullptr, ReceiversLayer, 0, nullptr, nullptr, nullptr);
 
   ReceiversLayer->SyncToDisk();
@@ -1390,7 +1516,7 @@ void LandProcessor::createSRFandLNR()
 
   GDALClose( Dataset );
 
-  Dataset = (GDALDataset *) GDALOpen( getOutputRasterPath(m_OutputPlotsRasterFile).c_str(), GA_ReadOnly );
+  Dataset = (GDALDataset *) GDALOpen(getOutputRasterPath(m_OutputPlotsRasterFile).c_str(), GA_ReadOnly );
   getGeoTransform(Dataset);
 
   ReceiversLayer->ResetReading();
@@ -1422,7 +1548,7 @@ void LandProcessor::createSRFandLNR()
 
   GDALClose( Dataset );
 
-  Dataset = (GDALDataset *) GDALOpen( getOutputRasterPath(m_OutputCatchmentsRasterFile).c_str(), GA_ReadOnly );
+  Dataset = (GDALDataset *) GDALOpen(getOutputRasterPath(m_OutputCatchmentsRasterFile).c_str(), GA_ReadOnly );
   getGeoTransform(Dataset);
 
   ReceiversLayer->ResetReading();
@@ -1466,9 +1592,12 @@ void LandProcessor::createSRFandLNR()
     mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputCatchmentsGroupedVectorFile).c_str());
   }
 
+  const std::string CatchmentsLayerName = getLayerNameFromFilename(m_OutputCatchmentsVectorFile);
+  const std::string CatchmentsGroupedLayerName = getLayerNameFromFilename(m_OutputCatchmentsGroupedVectorFile);
+
   Catchments = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputCatchmentsVectorFile).c_str(), TRUE );
-  m_SQLRequest = "SELECT ST_Union(geometry), IDCat FROM " + m_OutputCatchmentsVectorFile.substr(0, m_OutputCatchmentsVectorFile.find(".")) + " GROUP BY IDCat";
-  FileName = m_OutputCatchmentsGroupedVectorFile.substr(0, m_OutputCatchmentsGroupedVectorFile.find("."));
+  m_SQLRequest = "SELECT ST_Union(geometry), IDCat FROM " +CatchmentsLayerName + " GROUP BY IDCat";
+  FileName = CatchmentsGroupedLayerName;
   SQLLayer = Catchments->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
   Catchments->CopyLayer(SQLLayer, FileName.c_str(), nullptr);
   Catchments->ReleaseResultSet(SQLLayer);
@@ -1480,10 +1609,10 @@ void LandProcessor::createSRFandLNR()
   // The attributes obtain during this operation will be used for further regrouping
   // ===============================================================================
 
-  Outlets = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputOutletsVectorFile).c_str(), TRUE );
+  Outlets = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputOutletsVectorFile).c_str(), TRUE );
   OutletsLayer = Outlets->GetLayer(0);
 
-  Receivers = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputReceiversVectorFile).c_str(), TRUE );
+  Receivers = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputReceiversVectorFile).c_str(), TRUE );
   ReceiversLayer = Receivers->GetLayer(0);
 
   OutletsTable.resize(OutletsLayer->GetFeature(0)->GetFieldCount());
@@ -1525,7 +1654,7 @@ void LandProcessor::createSRFandLNR()
   // based on previously created OutletsTable and ReceiversTable.
   // ==============================================================================
 
-  Catchments = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputCatchmentsGroupedVectorFile).c_str(), TRUE );
+  Catchments = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputCatchmentsGroupedVectorFile).c_str(), TRUE );
   CatchmentsLayer = Catchments->GetLayer(0);
 
   FieldNamesTable.clear();
@@ -1671,7 +1800,7 @@ void LandProcessor::createSRFandLNR()
   // only if they share a limit.
   // ======================================================================
 
-  Catchments = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputCatchmentsGroupedVectorFile).c_str(), TRUE );
+  Catchments = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputCatchmentsGroupedVectorFile).c_str(), TRUE );
   CatchmentsLayer = Catchments->GetLayer(0);
   CatchmentsLayer->ResetReading();
 
@@ -1740,7 +1869,7 @@ void LandProcessor::createSRFandLNR()
   BigTable[4] = Table[4];
   FIDTable.clear();
 
-  DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
+  DataSource = OGRSFDriverRegistrar::Open(getOutputVectorPath().c_str(), TRUE );
 
   while (Table[0].size() != 0)
   {
@@ -1754,9 +1883,9 @@ void LandProcessor::createSRFandLNR()
         IDN = CatchmentsTable[7][Table[4][i]];
         ID2N = CatchmentsTable[8][Table[4][i]];
         ID3N = CatchmentsTable[9][Table[4][i]];
-        m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputCatchmentsGroupedVectorFile.substr(0, m_OutputCatchmentsGroupedVectorFile.find(".")) + " WHERE IDPlot2 == 0 "
+        m_SQLRequest = "SELECT ROWID as RID FROM " + CatchmentsGroupedLayerName + " WHERE IDPlot2 == 0 "
             "AND IDPlot == " + std::to_string(IDPlot) + " AND "
-            "ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + m_OutputCatchmentsGroupedVectorFile.substr(0, m_OutputCatchmentsGroupedVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FID) +"))) > 0";
+            "ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + CatchmentsGroupedLayerName + " WHERE ROWID == " + std::to_string(FID) +"))) > 0";
         SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
         if (SQLLayer->GetFeatureCount() != 0)
         {
@@ -1932,9 +2061,9 @@ void LandProcessor::createSRFandLNR()
           IDPlot2 = CatchmentsTable[4][Table[4][i]];
           ID2N = CatchmentsTable[8][Table[4][i]];
           ID3N = CatchmentsTable[9][Table[4][i]];
-          m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputCatchmentsGroupedVectorFile.substr(0, m_OutputCatchmentsGroupedVectorFile.find(".")) + " "
+          m_SQLRequest = "SELECT ROWID as RID FROM " + CatchmentsGroupedLayerName + " "
               "WHERE IDPlot == " + std::to_string(IDPlot) + " AND IDPlot2 == " + std::to_string(IDPlot2) + " AND "
-              "ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + m_OutputCatchmentsGroupedVectorFile.substr(0, m_OutputCatchmentsGroupedVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FID) + "))) > 0";
+              "ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + CatchmentsGroupedLayerName + " WHERE ROWID == " + std::to_string(FID) + "))) > 0";
           SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
           if (SQLLayer->GetFeatureCount() != 0)
           {
@@ -2091,10 +2220,12 @@ void LandProcessor::createSRFandLNR()
     mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputEntitiesVectorFile).c_str());
   }
 
+  const std::string EntitiesLayerName = getLayerNameFromFilename(m_OutputEntitiesVectorFile);
+
   DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
-  m_SQLRequest = "SELECT ST_Union(geometry), IDPlot, ID, IDPlot2, ID2, IDPlot3, ID3 FROM " + m_OutputCatchmentsGroupedVectorFile.substr(0, m_OutputCatchmentsGroupedVectorFile.find(".")) + " GROUP BY IDPlot, ID, IDPlot2, ID2, IDPlot3, ID3";
+  m_SQLRequest = "SELECT ST_Union(geometry), IDPlot, ID, IDPlot2, ID2, IDPlot3, ID3 FROM " + CatchmentsGroupedLayerName + " GROUP BY IDPlot, ID, IDPlot2, ID2, IDPlot3, ID3";
   SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
-  FileName = m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find("."));
+  FileName = EntitiesLayerName;
   DataSource->CopyLayer(SQLLayer, FileName.c_str(), nullptr);
   DataSource->ReleaseResultSet(SQLLayer);
   OGRDataSource::DestroyDataSource(DataSource);
@@ -2109,7 +2240,7 @@ void LandProcessor::createSRFandLNR()
   // ============================================================================================
 
   DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
-  m_SQLRequest = "SELECT ROWID as RID, IDPlot FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ST_Area(geometry) > " + std::to_string(m_MinEntSize);
+  m_SQLRequest = "SELECT ROWID as RID, IDPlot FROM " + EntitiesLayerName + " WHERE ST_Area(geometry) > " + std::to_string(m_MinEntSize);
   SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
 
   for(int i = 0; i < SQLLayer->GetFeatureCount(); i++)
@@ -2121,7 +2252,7 @@ void LandProcessor::createSRFandLNR()
   }
 
   DataSource->ReleaseResultSet(SQLLayer);
-  m_SQLRequest = "SELECT ROWID as RID, IDPlot FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ST_Area(geometry) <= " + std::to_string(m_MinEntSize);
+  m_SQLRequest = "SELECT ROWID as RID, IDPlot FROM " + EntitiesLayerName + " WHERE ST_Area(geometry) <= " + std::to_string(m_MinEntSize);
   SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
 
   for(int i = 0; i < SQLLayer->GetFeatureCount(); i++)
@@ -2144,7 +2275,7 @@ void LandProcessor::createSRFandLNR()
   {
     for (int i = 0; i < IDPlotAllSmallTable.size(); i++)
     {
-      m_SQLRequest = "SELECT IDPlot, ID, IDPlot2, ID2, IDPlot3, ID3 FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE IDPlot == " + std::to_string(IDPlotAllSmallTable[i]) + " "
+      m_SQLRequest = "SELECT IDPlot, ID, IDPlot2, ID2, IDPlot3, ID3 FROM " + EntitiesLayerName + " WHERE IDPlot == " + std::to_string(IDPlotAllSmallTable[i]) + " "
           "AND IDPlot != IDPlot3 ORDER BY ST_Area(geometry) DESC";
       SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
       if (SQLLayer->GetFeatureCount() != 0)
@@ -2157,14 +2288,14 @@ void LandProcessor::createSRFandLNR()
       }
       DataSource->ReleaseResultSet(SQLLayer);
     }
-    Entities = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
+    Entities = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
     EntitiesLayer = Entities->GetLayer(0);
     FeatureDefn = EntitiesLayer->GetLayerDefn();
     FIDToRemoveTable.clear();
     for (int i = 0; i < IDPlotAllSmallTable.size(); i++)
     {
       NewGeometry = nullptr;
-      m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE IDPlot == " + std::to_string(IDPlotAllSmallTable[i]) + " ORDER BY ST_Area(geometry) DESC";
+      m_SQLRequest = "SELECT ROWID as RID, * FROM " + EntitiesLayerName + " WHERE IDPlot == " + std::to_string(IDPlotAllSmallTable[i]) + " ORDER BY ST_Area(geometry) DESC";
       SQLLayer = Entities->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
       FIDToRemoveTable.clear();
       for (int j = 0; j < SQLLayer->GetFeatureCount(); j++)
@@ -2187,7 +2318,7 @@ void LandProcessor::createSRFandLNR()
       {
         EntitiesLayer->DeleteFeature(FIDToRemoveTable[j]);
       }
-      m_SQLRequest = "REPACK " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find("."));
+      m_SQLRequest = "REPACK " + EntitiesLayerName;
       Entities->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
       EntitiesLayer->SyncToDisk();
       FIDToRemoveTable.clear();
@@ -2203,7 +2334,7 @@ void LandProcessor::createSRFandLNR()
       EntitiesLayer->SyncToDisk();
     }
     OGRDataSource::DestroyDataSource(Entities);
-    Entities = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
+    Entities = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
     EntitiesLayer = Entities->GetLayer(0);
     EntitiesLayer->ResetReading();
     while ((EntitiesFeature = EntitiesLayer->GetNextFeature()) != nullptr)
@@ -2241,7 +2372,7 @@ void LandProcessor::createSRFandLNR()
   // ========================================================================
 
   DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
-  m_SQLRequest = "SELECT ROWID as RID, IDPlot FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ST_Area(geometry) <= " + std::to_string(m_MinEntSize);
+  m_SQLRequest = "SELECT ROWID as RID, IDPlot FROM " + EntitiesLayerName + " WHERE ST_Area(geometry) <= " + std::to_string(m_MinEntSize);
   SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
 
   for(int i = 0; i < SQLLayer->GetFeatureCount(); i++)
@@ -2264,7 +2395,7 @@ void LandProcessor::createSRFandLNR()
   IDPlot3NewTable.clear();
 
   FeaturesToDeleteTable = FIDSmallTable;
-  Entities = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
+  Entities = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
   EntitiesLayer = Entities->GetLayer(0);
 
   while(FIDSmallTable.size() != 0)
@@ -2272,16 +2403,16 @@ void LandProcessor::createSRFandLNR()
     Beginning = FIDSmallTable.size();
     for (int i = 0; i < FIDSmallTable.size(); i++)
     {
-      DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
+      DataSource = OGRSFDriverRegistrar::Open(getOutputVectorPath().c_str(), TRUE );
       EntitiesFeature = EntitiesLayer->GetFeature(FIDSmallTable[i]);
       ID = EntitiesFeature->GetFieldAsString("ID");
       EntitiesGeometry = EntitiesFeature->GetGeometryRef();
       IDPlot = EntitiesFeature->GetFieldAsInteger("IDPlot");
-      m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE "
+      m_SQLRequest = "SELECT ROWID as RID, * FROM " + EntitiesLayerName + " WHERE "
           "IDPlot == " + std::to_string(IDPlot) + " AND ID3 != " + m_QMark + ID + m_QMark + " AND "
           "ST_Area(geometry) > " + std::to_string(m_MinEntSize) + " AND "
-          "ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSmallTable[i])+ "))) > 0 "
-          "ORDER BY ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSmallTable[i])+ "))) DESC, ST_Area(geometry) DESC";
+          "ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + EntitiesLayerName + " WHERE ROWID == " + std::to_string(FIDSmallTable[i])+ "))) > 0 "
+          "ORDER BY ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + EntitiesLayerName + " WHERE ROWID == " + std::to_string(FIDSmallTable[i])+ "))) DESC, ST_Area(geometry) DESC";
       SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
       if (SQLLayer->GetFeatureCount() != 0)
       {
@@ -2328,7 +2459,7 @@ void LandProcessor::createSRFandLNR()
     }
   }
 
-  m_SQLRequest = "REPACK " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find("."));
+  m_SQLRequest = "REPACK " + EntitiesLayerName;
   Entities->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
   EntitiesLayer->SyncToDisk();
   EntitiesLayer = Entities->GetLayer(0);
@@ -2383,10 +2514,10 @@ void LandProcessor::createSRFandLNR()
     IDOldTable.clear();
     IDNewTable.clear();
     IDPlotNewTable.clear();
-    Entities = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
+    Entities = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
     EntitiesLayer = Entities->GetLayer(0);
     EntitiesLayer->ResetReading();
-    DataSource  = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
+    DataSource  = OGRSFDriverRegistrar::Open(getOutputVectorPath().c_str(), TRUE );
     NewGeometry = nullptr;
     while((EntitiesFeature = EntitiesLayer->GetNextFeature()) != nullptr)
     {
@@ -2397,17 +2528,17 @@ void LandProcessor::createSRFandLNR()
       if (ID != "0N1" and std::find(FIDToRemoveTable.begin(), FIDToRemoveTable.end(), FID) == FIDToRemoveTable.end()
           and std::find(IDPlotNewTable.begin(), IDPlotNewTable.end(), IDPlot) == IDPlotNewTable.end())
       {
-        m_SQLRequest = "SELECT geometry, ROWID as RID, * FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE "
-            "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FID) + "))) > 0 AND "
+        m_SQLRequest = "SELECT geometry, ROWID as RID, * FROM " + EntitiesLayerName + " WHERE "
+            "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + EntitiesLayerName + " WHERE ROWID == " + std::to_string(FID) + "))) > 0 AND "
             "IDPlot == " + std::to_string(IDPlot) + " AND ID2 == " + m_QMark + ID2 + m_QMark + " AND "
             "ROWID != " + std::to_string(FID) + " AND "
             "ST_Touches("
-            "ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID2 + m_QMark + ")), "
-            "ST_Intersection((SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FID) + "),"
-            "(SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID2 + m_QMark + "))) "
+            "ST_Intersection(geometry,(SELECT geometry FROM " + EntitiesLayerName + " WHERE ID == " + m_QMark + ID2 + m_QMark + ")), "
+            "ST_Intersection((SELECT geometry FROM " + EntitiesLayerName + " WHERE ROWID == " + std::to_string(FID) + "),"
+            "(SELECT geometry FROM " + EntitiesLayerName + " WHERE ID == " + m_QMark + ID2 + m_QMark + "))) "
             "ORDER BY "
             "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM "
-            "" + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE "
+            "" + EntitiesLayerName + " WHERE "
             "ROWID == " + std::to_string(FID) + ")))";
         SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
         if (SQLLayer->GetFeatureCount() != 0)
@@ -2453,11 +2584,11 @@ void LandProcessor::createSRFandLNR()
       }
     }
     FIDToRemoveTable.clear();
-    m_SQLRequest = "REPACK " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find("."));
+    m_SQLRequest = "REPACK " + EntitiesLayerName;
     Entities->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
     Entities->SyncToDisk();
     OGRDataSource::DestroyDataSource(Entities);
-    Entities  = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
+    Entities  = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
     EntitiesLayer = Entities->GetLayer(0);
     EntitiesLayer->ResetReading();
     while((EntitiesFeature = EntitiesLayer->GetNextFeature()) != nullptr)
@@ -2487,7 +2618,7 @@ void LandProcessor::createSRFandLNR()
     EntitiesLayer->SyncToDisk();
     Entities->SyncToDisk();
     OGRDataSource::DestroyDataSource(Entities);
-    Entities = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
+    Entities = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
     EntitiesLayer = Entities->GetLayer(0);
     EntitiesLayer->ResetReading();
     DataSource  = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
@@ -2500,17 +2631,17 @@ void LandProcessor::createSRFandLNR()
       ID2 = EntitiesFeature->GetFieldAsString("ID2");
       if (ID != "0N1")
       {
-        m_SQLRequest = "SELECT geometry, ROWID as RID, * FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE "
-            "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FID) + "))) > 0 AND "
+        m_SQLRequest = "SELECT geometry, ROWID as RID, * FROM " + EntitiesLayerName + " WHERE "
+            "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + EntitiesLayerName + " WHERE ROWID == " + std::to_string(FID) + "))) > 0 AND "
             "IDPlot == " + std::to_string(IDPlot) + " AND ID2 == " + m_QMark + ID2 + m_QMark + " AND "
             "ROWID != " + std::to_string(FID) + " AND "
             "ST_Touches("
-            "ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID2 + m_QMark + ")), "
-            "ST_Intersection((SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FID) + "),"
-            "(SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID2 + m_QMark + "))) "
+            "ST_Intersection(geometry,(SELECT geometry FROM " + EntitiesLayerName + " WHERE ID == " + m_QMark + ID2 + m_QMark + ")), "
+            "ST_Intersection((SELECT geometry FROM " + EntitiesLayerName + " WHERE ROWID == " + std::to_string(FID) + "),"
+            "(SELECT geometry FROM " + EntitiesLayerName + " WHERE ID == " + m_QMark + ID2 + m_QMark + "))) "
             "ORDER BY "
             "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM "
-            "" + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE "
+            "" + EntitiesLayerName + " WHERE "
             "ROWID == " + std::to_string(FID) + ")))";
         SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
         if (SQLLayer->GetFeatureCount() != 0)
@@ -2539,10 +2670,10 @@ void LandProcessor::createSRFandLNR()
 
   while (N != 0)
   {
-    Entities = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
+    Entities = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
     EntitiesLayer = Entities->GetLayer(0);
     EntitiesLayer->ResetReading();
-    DataSource  = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
+    DataSource  = OGRSFDriverRegistrar::Open(getOutputVectorPath().c_str(), TRUE );
     while((EntitiesFeature = EntitiesLayer->GetNextFeature()) != nullptr)
     {
       FID = EntitiesFeature->GetFID();
@@ -2551,15 +2682,15 @@ void LandProcessor::createSRFandLNR()
       ID2 = EntitiesFeature->GetFieldAsString("ID2");
       if (ID != "0N1" and ID2 != "0N1")
       {
-        m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE "
-            "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
+        m_SQLRequest = "SELECT ROWID as RID, * FROM " + EntitiesLayerName + " WHERE "
+            "ST_Touches(geometry,(SELECT geometry FROM " + EntitiesLayerName + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
             "ROWID != " + std::to_string(FID);
         SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
         if (SQLLayer->GetFeatureCount() <= 2)
         {
           DataSource->ReleaseResultSet(SQLLayer);
-          m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE "
-              "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
+          m_SQLRequest = "SELECT ROWID as RID, * FROM " + EntitiesLayerName + " WHERE "
+              "ST_Touches(geometry,(SELECT geometry FROM " + EntitiesLayerName + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
               "IDPlot == " + std::to_string(IDPlot) + " AND ROWID != " + std::to_string(FID);
           SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
           if (SQLLayer->GetFeatureCount() != 0)
@@ -2582,7 +2713,7 @@ void LandProcessor::createSRFandLNR()
     }
     OGRDataSource::DestroyDataSource(DataSource);
     OGRDataSource::DestroyDataSource(Entities);
-    Entities = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
+    Entities = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
     EntitiesLayer = Entities->GetLayer(0);
     EntitiesLayer->ResetReading();
     if (FIDToRemoveTable.size() != 0)
@@ -2593,13 +2724,13 @@ void LandProcessor::createSRFandLNR()
       }
     }
     FIDToRemoveTable.clear();
-    m_SQLRequest = "REPACK " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find("."));
+    m_SQLRequest = "REPACK " + EntitiesLayerName;
     Entities->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
     OGRDataSource::DestroyDataSource(Entities);
-    Entities = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
+    Entities = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
     EntitiesLayer = Entities->GetLayer(0);
     EntitiesLayer->ResetReading();
-    DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
+    DataSource = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
     N = 0;
     while((EntitiesFeature = EntitiesLayer->GetNextFeature()) != nullptr)
     {
@@ -2609,15 +2740,15 @@ void LandProcessor::createSRFandLNR()
       ID2 = EntitiesFeature->GetFieldAsString("ID2");
       if (ID != "0N1" and ID2 != "0N1")
       {
-        m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE "
-            "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
+        m_SQLRequest = "SELECT ROWID as RID, * FROM " + EntitiesLayerName + " WHERE "
+            "ST_Touches(geometry,(SELECT geometry FROM " + EntitiesLayerName + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
             "ROWID != " + std::to_string(FID);
         SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
         if (SQLLayer->GetFeatureCount() <= 2)
         {
           DataSource->ReleaseResultSet(SQLLayer);
-          m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE "
-              "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputEntitiesVectorFile.substr(0, m_OutputEntitiesVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
+          m_SQLRequest = "SELECT ROWID as RID, * FROM " + EntitiesLayerName + " WHERE "
+              "ST_Touches(geometry,(SELECT geometry FROM " + EntitiesLayerName + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
               "IDPlot == " + std::to_string(IDPlot) + " AND ROWID != " + std::to_string(FID);
           SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
           if (SQLLayer->GetFeatureCount() != 0)
@@ -2698,7 +2829,7 @@ void LandProcessor::createSRFandLNR()
   // entities vector (i.e., the entities whose original parcel ID attribute is not the same as their IDPlot)
   // =======================================================================================================
 
-  Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+  Union = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
   UnionLayer = Union->GetLayer(0);
   UnionFeature = nullptr;
   UnionGeometry = nullptr;
@@ -2725,11 +2856,13 @@ void LandProcessor::createSRFandLNR()
     }
   }
 
-  m_SQLRequest = "REPACK " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find("."));
+  const std::string PlotsAndEntitiesUnionLayerName = getLayerNameFromFilename(m_OutputPlotsAndEntitiesUnionVectorFile);
+
+  m_SQLRequest = "REPACK " + PlotsAndEntitiesUnionLayerName;
   Union->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
   OGRDataSource::DestroyDataSource(Union);
 
-  Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+  Union = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
   UnionLayer = Union->GetLayer(0);
 
   FeatureDefn = UnionLayer->GetLayerDefn();
@@ -2752,7 +2885,7 @@ void LandProcessor::createSRFandLNR()
   UnionLayer->SyncToDisk();
   OGRDataSource::DestroyDataSource(Union);
 
-  Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+  Union = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
   UnionLayer = Union->GetLayer(0);
   UnionLayer->ResetReading();
   UnionFeature = nullptr;
@@ -2807,54 +2940,54 @@ void LandProcessor::createSRFandLNR()
 
   while (FIDSliverTable.size() != 0)
   {
-    Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+    Union = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
     UnionLayer = Union->GetLayer(0);
     for (int i = 0; i < FIDSliverTable.size(); i++)
     {
       UnionFeature = UnionLayer->GetFeature(FIDSliverTable[i]);
       UnionGeometry = UnionFeature->GetGeometryRef();
-      DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
+      DataSource = OGRSFDriverRegistrar::Open(getOutputVectorPath().c_str(), TRUE );
       AggregatingFeature = nullptr;
       AggregatingGeometry = nullptr;
-      m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE " + m_IDFieldName + " == IDPlot "
+      m_SQLRequest = "SELECT ROWID as RID FROM " + PlotsAndEntitiesUnionLayerName + " WHERE " + m_IDFieldName + " == IDPlot "
           "AND " + m_IDFieldName + " == " + std::to_string(UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str())) + "  AND "
-          "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) > 0 "
-          "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) DESC";
+          "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) > 0 "
+          "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) DESC";
       SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
       if (SQLLayer->GetFeatureCount() > 1)
       {
         DataSource->ReleaseResultSet(SQLLayer);
-        m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE " + m_IDFieldName + " == "
+        m_SQLRequest = "SELECT ROWID as RID FROM " + PlotsAndEntitiesUnionLayerName + " WHERE " + m_IDFieldName + " == "
             "IDPlot AND " + m_IDFieldName + " == " + std::to_string(UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str())) + " AND "
             "ID2 == " + m_QMark + UnionFeature->GetFieldAsString("ID") + m_QMark + " AND "
-            "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) > 0 "
-            "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) DESC";
+            "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) > 0 "
+            "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) DESC";
         SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
         if (SQLLayer->GetFeatureCount() == 0)
         {
           DataSource->ReleaseResultSet(SQLLayer);
-          m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE " + m_IDFieldName + " == IDPlot "
+          m_SQLRequest = "SELECT ROWID as RID FROM " + PlotsAndEntitiesUnionLayerName + " WHERE " + m_IDFieldName + " == IDPlot "
               "AND " + m_IDFieldName + " == " + std::to_string(UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str())) + " AND "
               "ID == " + m_QMark + UnionFeature->GetFieldAsString("ID2") + m_QMark + " AND "
-              "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) > 0 "
-              "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) DESC";
+              "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) > 0 "
+              "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) DESC";
           SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
           if (SQLLayer->GetFeatureCount() == 0)
           {
             DataSource->ReleaseResultSet(SQLLayer);
-            m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE " + m_IDFieldName + " == IDPlot "
+            m_SQLRequest = "SELECT ROWID as RID FROM " + PlotsAndEntitiesUnionLayerName + " WHERE " + m_IDFieldName + " == IDPlot "
                 "AND " + m_IDFieldName + " == " + std::to_string(UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str())) + " AND "
                 "ID2 == " + m_QMark + UnionFeature->GetFieldAsString("ID2") + m_QMark + " AND "
-                "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) > 0 "
-                "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) DESC";
+                "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) > 0 "
+                "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) DESC";
             SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
             if (SQLLayer->GetFeatureCount() == 0)
             {
               DataSource->ReleaseResultSet(SQLLayer);
-              m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE " + m_IDFieldName + " == IDPlot "
+              m_SQLRequest = "SELECT ROWID as RID FROM " + PlotsAndEntitiesUnionLayerName + " WHERE " + m_IDFieldName + " == IDPlot "
                   "AND " + m_IDFieldName + " == " + std::to_string(UnionFeature->GetFieldAsInteger(m_IDFieldName.c_str())) + " AND "
-                  "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) > 0 "
-                  "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) DESC";
+                  "ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) > 0 "
+                  "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ROWID == " + std::to_string(FIDSliverTable[i]) + "))) DESC";
               SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
               FID = SQLLayer->GetFeature(0)->GetFieldAsInteger("RID");
               DataSource->ReleaseResultSet(SQLLayer);
@@ -2926,10 +3059,10 @@ void LandProcessor::createSRFandLNR()
       }
     }
     FIDToRemoveTable.clear();
-    m_SQLRequest = "REPACK " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find("."));
+    m_SQLRequest = "REPACK " + PlotsAndEntitiesUnionLayerName;
     Union->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
     OGRDataSource::DestroyDataSource(Union);
-    Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+    Union = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
     UnionLayer = Union->GetLayer(0);
     UnionLayer->ResetReading();
     UnionFeature = nullptr;
@@ -2948,7 +3081,7 @@ void LandProcessor::createSRFandLNR()
   // Regrouping entities that do not have any entities that they can be aggregated with
   // ==================================================================================
 
-  Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+  Union = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
   UnionLayer = Union->GetLayer(0);
   FeatureDefn = UnionLayer->GetLayerDefn();
   NewFeature = nullptr;
@@ -2960,7 +3093,7 @@ void LandProcessor::createSRFandLNR()
       SQLFeature = nullptr;
       SQLGeometry = nullptr;
       NewGeometry = nullptr;
-      m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE " + m_IDFieldName + " == " + std::to_string(MissingIDTable[i]) + " ORDER BY ST_Area(geometry) DESC";
+      m_SQLRequest = "SELECT ROWID as RID, * FROM " + PlotsAndEntitiesUnionLayerName + " WHERE " + m_IDFieldName + " == " + std::to_string(MissingIDTable[i]) + " ORDER BY ST_Area(geometry) DESC";
       SQLLayer = Union->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
       IDField = SQLLayer->GetFeature(0)->GetFieldAsInteger(m_IDFieldName.c_str());
       IDPlot2 = SQLLayer->GetFeature(0)->GetFieldAsInteger("IDPlot2");
@@ -3020,7 +3153,7 @@ void LandProcessor::createSRFandLNR()
       {
         UnionLayer->DeleteFeature(FIDToRemoveTable[l]);
       }
-      m_SQLRequest = "REPACK " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find("."));
+      m_SQLRequest = "REPACK " + PlotsAndEntitiesUnionLayerName;
       Union->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
       Union->SyncToDisk();
     }
@@ -3037,13 +3170,13 @@ void LandProcessor::createSRFandLNR()
   // Regrouping of those features that have the same attributes and share a common border
   // ====================================================================================
 
-  Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+  Union = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
   UnionLayer = Union->GetLayer(0);
   UnionLayer->ResetReading();
   UnionFeature = nullptr;
   UnionGeometry = nullptr;
 
-  DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
+  DataSource = OGRSFDriverRegistrar::Open(getOutputVectorPath().c_str(), TRUE );
   SQLLayer = nullptr;
   SQLFeature = nullptr;
   SQLGeometry = nullptr;
@@ -3060,7 +3193,7 @@ void LandProcessor::createSRFandLNR()
     ID = UnionFeature->GetFieldAsString("ID");
     if (std::find(FIDToRemoveTable.begin(), FIDToRemoveTable.end(), FID) == FIDToRemoveTable.end())
     {
-      m_SQLRequest = "SELECT ROWID as RID, geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE " + m_IDFieldName + " == " + std::to_string(IDField) + " AND "
+      m_SQLRequest = "SELECT ROWID as RID, geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE " + m_IDFieldName + " == " + std::to_string(IDField) + " AND "
           "IDPlot == " + std::to_string(IDPlot) + " AND ID == " + m_QMark + ID + m_QMark + " AND "
           "RID != " + std::to_string(FID) + " ORDER BY ST_Area(geometry) DESC";
       SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
@@ -3103,7 +3236,7 @@ void LandProcessor::createSRFandLNR()
   }
 
   FIDToRemoveTable.clear();
-  m_SQLRequest = "REPACK " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find("."));
+  m_SQLRequest = "REPACK " + PlotsAndEntitiesUnionLayerName;
   Union->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
   OGRDataSource::DestroyDataSource(Union);
 
@@ -3113,7 +3246,7 @@ void LandProcessor::createSRFandLNR()
   // shares the longest boundary with
   // =======================================================================================
 
-  Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+  Union = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
   UnionLayer = Union->GetLayer(0);
   UnionLayer->ResetReading();
   UnionFeature = nullptr;
@@ -3162,18 +3295,18 @@ void LandProcessor::createSRFandLNR()
 
   FIDToRemoveTable.clear();
 
-  m_SQLRequest = "REPACK " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find("."));
+  m_SQLRequest = "REPACK " + PlotsAndEntitiesUnionLayerName;
   Union->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
   OGRDataSource::DestroyDataSource(Union);
 
-  Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+  Union = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
   UnionLayer = Union->GetLayer(0);
   UnionLayer->ResetReading();
 
-  DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+  DataSource = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
 
   m_SQLRequest = "SELECT ROWID as RID FROM "
-      "" + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " "
+      "" + PlotsAndEntitiesUnionLayerName + " "
       "WHERE ID == " + m_QMark + "0N1" + m_QMark + " ORDER BY ST_Area(geometry) DESC";
   SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
 
@@ -3186,10 +3319,10 @@ void LandProcessor::createSRFandLNR()
     DataSource->ReleaseResultSet(SQLLayer);
     for (int j = 0; j < FIDTable.size(); j++)
     {
-      m_SQLRequest = "SELECT * FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " "
-          "WHERE ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDTable[j]) + "))) > 0 "
+      m_SQLRequest = "SELECT * FROM " + PlotsAndEntitiesUnionLayerName + " "
+          "WHERE ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ROWID == " + std::to_string(FIDTable[j]) + "))) > 0 "
           "AND ID != " + m_QMark + "0N1" + m_QMark + " "
-          "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FIDTable[j]) + "))) DESC";
+          "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ROWID == " + std::to_string(FIDTable[j]) + "))) DESC";
       SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
       if (SQLLayer->GetFeatureCount() != 0)
       {
@@ -3220,7 +3353,7 @@ void LandProcessor::createSRFandLNR()
   // them into separate entities of the POLYGON type
   // =======================================================================================
 
-  Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+  Union = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
   UnionLayer = Union->GetLayer(0);
   UnionLayer->ResetReading();
 
@@ -3318,7 +3451,7 @@ void LandProcessor::createSRFandLNR()
     UnionLayer->DeleteFeature(FIDToRemoveTable[i]);
   }
 
-  m_SQLRequest = "REPACK " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find("."));
+  m_SQLRequest = "REPACK " + PlotsAndEntitiesUnionLayerName;
   Union->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
 
   OGRDataSource::DestroyDataSource(Union);
@@ -3331,10 +3464,10 @@ void LandProcessor::createSRFandLNR()
   // Checking for missing connections between entities
   // ===============================================================================
 
-  Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+  Union = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
   UnionLayer = Union->GetLayer(0);
   UnionLayer->ResetReading();
-  DataSource  = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
+  DataSource  = OGRSFDriverRegistrar::Open(getOutputVectorPath().c_str(), TRUE );
 
   FIDConnectionProblemTable.clear();
 
@@ -3344,8 +3477,8 @@ void LandProcessor::createSRFandLNR()
     ID2 = UnionFeature->GetFieldAsString("ID2");
     if (ID != "0N1")
     {
-      m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID2 + m_QMark + " AND "
-          "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + "))";
+      m_SQLRequest = "SELECT ROWID as RID, * FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ID == " + m_QMark + ID2 + m_QMark + " AND "
+          "ST_Touches(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ID == " + m_QMark + ID + m_QMark + "))";
       SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
       if (SQLLayer->GetFeatureCount() == 0)
       {
@@ -3365,19 +3498,19 @@ void LandProcessor::createSRFandLNR()
     {
       Beginning = FIDConnectionProblemTable.size();
       FIDToRemoveTable.clear();
-      DataSource  = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+      DataSource  = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
       for (int i = 0; i < FIDConnectionProblemTable.size(); i++)
       {
         UnionFeature = UnionLayer->GetFeature(FIDConnectionProblemTable[i]);
         IDPlot = UnionFeature->GetFieldAsInteger("IDPlot");
         ID = UnionFeature->GetFieldAsString("ID");
         ID2 = UnionFeature->GetFieldAsString("ID2");
-        m_SQLRequest = "SELECT IDPlot, ID, IDPlot2, ID2 FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID2 == " + m_QMark + ID2 + m_QMark + " AND "
+        m_SQLRequest = "SELECT IDPlot, ID, IDPlot2, ID2 FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ID2 == " + m_QMark + ID2 + m_QMark + " AND "
             "IDPlot != " + std::to_string(IDPlot) + " AND "
-            "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
-            "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID2 + m_QMark + ")) "
-            "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + "))) DESC,"
-            " ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID2 + m_QMark + "))) DESC";
+            "ST_Touches(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
+            "ST_Touches(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ID == " + m_QMark + ID2 + m_QMark + ")) "
+            "ORDER BY ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ID == " + m_QMark + ID + m_QMark + "))) DESC,"
+            " ST_Length(ST_Intersection(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ID == " + m_QMark + ID2 + m_QMark + "))) DESC";
         SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
         if (SQLLayer->GetFeatureCount() != 0)
         {
@@ -3392,7 +3525,7 @@ void LandProcessor::createSRFandLNR()
           UnionLayer->SetFeature(UnionFeature);
           FIDToRemoveTable.push_back(UnionFeature->GetFID());
           DataSource->ReleaseResultSet(SQLLayer);
-          m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID2 == " + m_QMark + ID + m_QMark;
+          m_SQLRequest = "SELECT ROWID as RID FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ID2 == " + m_QMark + ID + m_QMark;
           SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
           if (SQLLayer->GetFeatureCount() != 0)
           {
@@ -3439,18 +3572,18 @@ void LandProcessor::createSRFandLNR()
     {
       Beginning = FIDConnectionProblemTable.size();
       FIDToRemoveTable.clear();
-      DataSource  = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+      DataSource  = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
       for (int i = 0; i < FIDConnectionProblemTable.size(); i++)
       {
         UnionFeature = UnionLayer->GetFeature(FIDConnectionProblemTable[i]);
         IDPlot = UnionFeature->GetFieldAsInteger("IDPlot");
         ID = UnionFeature->GetFieldAsString("ID");
         ID2 = UnionFeature->GetFieldAsString("ID2");
-        m_SQLRequest = "SELECT IDPlot, ID, IDPlot2, ID2 FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE IDPlot != " + std::to_string(IDPlot) + " AND "
-            "ST_Touches(geometry, (SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
+        m_SQLRequest = "SELECT IDPlot, ID, IDPlot2, ID2 FROM " + PlotsAndEntitiesUnionLayerName + " WHERE IDPlot != " + std::to_string(IDPlot) + " AND "
+            "ST_Touches(geometry, (SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
             "ID2 != " + m_QMark + ID + m_QMark + " AND ID3 != " + m_QMark + ID + m_QMark + " ORDER BY "
-            "ST_Distance(geometry, (SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID2 + m_QMark + ")) ASC, "
-            "ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + "))) DESC";
+            "ST_Distance(geometry, (SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ID == " + m_QMark + ID2 + m_QMark + ")) ASC, "
+            "ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ID == " + m_QMark + ID + m_QMark + "))) DESC";
         SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
         if (SQLLayer->GetFeatureCount() != 0)
         {
@@ -3465,7 +3598,7 @@ void LandProcessor::createSRFandLNR()
           UnionLayer->SetFeature(UnionFeature);
           FIDToRemoveTable.push_back(UnionFeature->GetFID());
           DataSource->ReleaseResultSet(SQLLayer);
-          m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID2 == " + m_QMark + ID + m_QMark;
+          m_SQLRequest = "SELECT ROWID as RID FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ID2 == " + m_QMark + ID + m_QMark;
           SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
           if (SQLLayer->GetFeatureCount() != 0)
           {
@@ -3511,10 +3644,10 @@ void LandProcessor::createSRFandLNR()
   // (could happen as a result of sliver re-attribution)
   // =========================================================================================
 
-  Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+  Union = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
   UnionLayer = Union->GetLayer(0);
   UnionLayer->ResetReading();
-  DataSource  = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
+  DataSource  = OGRSFDriverRegistrar::Open(getOutputVectorPath().c_str(), TRUE );
 
   FIDConnectionProblemTable.clear();
 
@@ -3525,8 +3658,8 @@ void LandProcessor::createSRFandLNR()
     ID2 = UnionFeature->GetFieldAsString("ID2");
     if (ID != "0N1")
     {
-      m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE "
-          "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND IDPlot != " + std::to_string(IDPlot);
+      m_SQLRequest = "SELECT ROWID as RID, * FROM " + PlotsAndEntitiesUnionLayerName + " WHERE "
+          "ST_Touches(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND IDPlot != " + std::to_string(IDPlot);
       SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
       if (SQLLayer->GetFeatureCount() == 0)
       {
@@ -3543,7 +3676,7 @@ void LandProcessor::createSRFandLNR()
 
   if (FIDConnectionProblemTable.size() != 0)
   {
-    DataSource  = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
+    DataSource  = OGRSFDriverRegistrar::Open(getOutputVectorPath().c_str(), TRUE );
     for (int i = 0; i < FIDConnectionProblemTable.size(); i++)
     {
       UnionFeature = UnionLayer->GetFeature(FIDConnectionProblemTable[i]);
@@ -3551,15 +3684,15 @@ void LandProcessor::createSRFandLNR()
       ID = UnionFeature->GetFieldAsString("ID");
       ID2 = UnionFeature->GetFieldAsString("ID2");
       m_SQLRequest = "SELECT ROWID AS RID, ST_Union(geometry, (SELECT geometry "
-          "FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " "
+          "FROM " + PlotsAndEntitiesUnionLayerName + " "
           "WHERE ROWID == " + std::to_string(FIDConnectionProblemTable[i]) + ")), ROWID AS RID, IDPlot, "
           "ID, IDPlot2, ID2, IDPlot3, ID3 FROM "
-          "" + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE"
+          "" + PlotsAndEntitiesUnionLayerName + " WHERE"
           " IDPlot == " + std::to_string(IDPlot) + " AND "
-          "ST_Touches(geometry, (SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE "
+          "ST_Touches(geometry, (SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE "
           "ROWID == " + std::to_string(FIDConnectionProblemTable[i]) + ")) AND "
           "ID2 != " + m_QMark + ID + m_QMark + " AND ID3 != " + m_QMark + ID + m_QMark + " ORDER BY "
-          "ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " "
+          "ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " "
           "WHERE ROWID == " + std::to_string(FIDConnectionProblemTable[i]) + "))) DESC";
       SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
       if (SQLLayer->GetFeatureCount() != 0)
@@ -3587,7 +3720,7 @@ void LandProcessor::createSRFandLNR()
             FIDToRemoveTable.push_back(SQLLayer->GetFeature(j)->GetFieldAsInteger("RID"));
             FIDToRemoveTable.push_back(FIDConnectionProblemTable[i]);
             DataSource->ReleaseResultSet(SQLLayer);
-            m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID2 == " + m_QMark + ID + m_QMark;
+            m_SQLRequest = "SELECT ROWID as RID FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ID2 == " + m_QMark + ID + m_QMark;
             SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
             if (SQLLayer->GetFeatureCount() != 0)
             {
@@ -3602,7 +3735,7 @@ void LandProcessor::createSRFandLNR()
               }
             }
             DataSource->ReleaseResultSet(SQLLayer);
-            m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID3 == " + m_QMark + ID + m_QMark;
+            m_SQLRequest = "SELECT ROWID as RID FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ID3 == " + m_QMark + ID + m_QMark;
             SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
             if (SQLLayer->GetFeatureCount() != 0)
             {
@@ -3640,7 +3773,7 @@ void LandProcessor::createSRFandLNR()
   }
 
   FIDToRemoveTable.clear();
-  m_SQLRequest = "REPACK " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find("."));
+  m_SQLRequest = "REPACK " + PlotsAndEntitiesUnionLayerName;
   Union->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
   Union->SyncToDisk();
 
@@ -3661,10 +3794,10 @@ void LandProcessor::createSRFandLNR()
     IDOldTable.clear();
     IDNewTable.clear();
     IDPlotNewTable.clear();
-    Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+    Union = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
     UnionLayer = Union->GetLayer(0);
     UnionLayer->ResetReading();
-    DataSource  = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
+    DataSource  = OGRSFDriverRegistrar::Open(getOutputVectorPath().c_str(), TRUE );
     NewGeometry = nullptr;
     while((UnionFeature = UnionLayer->GetNextFeature()) != nullptr)
     {
@@ -3675,14 +3808,14 @@ void LandProcessor::createSRFandLNR()
       if (ID != "0N1" and std::find(FIDToRemoveTable.begin(), FIDToRemoveTable.end(), FID) == FIDToRemoveTable.end()
           and std::find(IDPlotNewTable.begin(), IDPlotNewTable.end(), IDPlot) == IDPlotNewTable.end())
       {
-        m_SQLRequest = "SELECT geometry, ROWID as RID, * FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE "
-            "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FID) + ")) AND "
+        m_SQLRequest = "SELECT geometry, ROWID as RID, * FROM " + PlotsAndEntitiesUnionLayerName + " WHERE "
+            "ST_Touches(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ROWID == " + std::to_string(FID) + ")) AND "
             "IDPlot == " + std::to_string(IDPlot) + " AND ID2 == " + m_QMark + ID2 + m_QMark + " AND "
             "ROWID != " + std::to_string(FID) + " AND "
             "ST_Touches("
-            "ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID2 + m_QMark + ")), "
-            "ST_Intersection((SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FID) + "),"
-            "(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID2 + m_QMark + ")))";
+            "ST_Intersection(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ID == " + m_QMark + ID2 + m_QMark + ")), "
+            "ST_Intersection((SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ROWID == " + std::to_string(FID) + "),"
+            "(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ID == " + m_QMark + ID2 + m_QMark + ")))";
         SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
         if (SQLLayer->GetFeatureCount() != 0)
         {
@@ -3727,11 +3860,11 @@ void LandProcessor::createSRFandLNR()
       }
     }
     FIDToRemoveTable.clear();
-    m_SQLRequest = "REPACK " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find("."));
+    m_SQLRequest = "REPACK " + PlotsAndEntitiesUnionLayerName;
     Union->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
     Union->SyncToDisk();
     OGRDataSource::DestroyDataSource(Union);
-    Union  = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+    Union  = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
     UnionLayer = Union->GetLayer(0);
     UnionLayer->ResetReading();
     while((UnionFeature = UnionLayer->GetNextFeature()) != nullptr)
@@ -3761,10 +3894,10 @@ void LandProcessor::createSRFandLNR()
     UnionLayer->SyncToDisk();
     Union->SyncToDisk();
     OGRDataSource::DestroyDataSource(Union);
-    Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+    Union = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
     UnionLayer = Union->GetLayer(0);
     UnionLayer->ResetReading();
-    DataSource  = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+    DataSource  = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
     N = 0;
     while((UnionFeature = UnionLayer->GetNextFeature()) != nullptr)
     {
@@ -3774,14 +3907,14 @@ void LandProcessor::createSRFandLNR()
       ID2 = UnionFeature->GetFieldAsString("ID2");
       if (ID != "0N1")
       {
-        m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE "
-            "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FID) + ")) AND "
+        m_SQLRequest = "SELECT ROWID as RID FROM " + PlotsAndEntitiesUnionLayerName + " WHERE "
+            "ST_Touches(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ROWID == " + std::to_string(FID) + ")) AND "
             "IDPlot == " + std::to_string(IDPlot) + " AND ID2 == " + m_QMark + ID2 + m_QMark + " AND "
             "ROWID != " + std::to_string(FID) + " AND "
             "ST_Touches("
-            "ST_Intersection(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID2 + m_QMark + ")), "
-            "ST_Intersection((SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FID) + "),"
-            "(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID2 + m_QMark + ")))";
+            "ST_Intersection(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ID == " + m_QMark + ID2 + m_QMark + ")), "
+            "ST_Intersection((SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ROWID == " + std::to_string(FID) + "),"
+            "(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ID == " + m_QMark + ID2 + m_QMark + ")))";
         SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
         if (SQLLayer->GetFeatureCount() != 0)
         {
@@ -3812,10 +3945,10 @@ void LandProcessor::createSRFandLNR()
 
   while (N != 0)
   {
-    Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+    Union = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
     UnionLayer = Union->GetLayer(0);
     UnionLayer->ResetReading();
-    DataSource  = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
+    DataSource  = OGRSFDriverRegistrar::Open(getOutputVectorPath().c_str(), TRUE );
     while((UnionFeature = UnionLayer->GetNextFeature()) != nullptr)
     {
       FID = UnionFeature->GetFID();
@@ -3824,15 +3957,15 @@ void LandProcessor::createSRFandLNR()
       ID2 = UnionFeature->GetFieldAsString("ID2");
       if (ID != "0N1" and ID2 != "0N1")
       {
-        m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE "
-            "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
+        m_SQLRequest = "SELECT ROWID as RID, * FROM " + PlotsAndEntitiesUnionLayerName + " WHERE "
+            "ST_Touches(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
             "ROWID != " + std::to_string(FID);
         SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
         if (SQLLayer->GetFeatureCount() <= 2)
         {
           DataSource->ReleaseResultSet(SQLLayer);
-          m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE "
-              "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
+          m_SQLRequest = "SELECT ROWID as RID, * FROM " + PlotsAndEntitiesUnionLayerName + " WHERE "
+              "ST_Touches(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
               "IDPlot == " + std::to_string(IDPlot) + " AND ROWID != " + std::to_string(FID);
           SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
           if (SQLLayer->GetFeatureCount() != 0)
@@ -3855,7 +3988,7 @@ void LandProcessor::createSRFandLNR()
     }
     OGRDataSource::DestroyDataSource(DataSource);
     OGRDataSource::DestroyDataSource(Union);
-    Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+    Union = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
     UnionLayer = Union->GetLayer(0);
     UnionLayer->ResetReading();
     if (FIDToRemoveTable.size() != 0)
@@ -3866,13 +3999,13 @@ void LandProcessor::createSRFandLNR()
       }
     }
     FIDToRemoveTable.clear();
-    m_SQLRequest = "REPACK " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find("."));
+    m_SQLRequest = "REPACK " + PlotsAndEntitiesUnionLayerName;
     Union->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
     OGRDataSource::DestroyDataSource(Union);
-    Union = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+    Union = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
     UnionLayer = Union->GetLayer(0);
     UnionLayer->ResetReading();
-    DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
+    DataSource = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str(), TRUE );
     N = 0;
     while((UnionFeature = UnionLayer->GetNextFeature()) != nullptr)
     {
@@ -3882,15 +4015,15 @@ void LandProcessor::createSRFandLNR()
       ID2 = UnionFeature->GetFieldAsString("ID2");
       if (ID != "0N1" and ID2 != "0N1")
       {
-        m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE "
-            "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
+        m_SQLRequest = "SELECT ROWID as RID, * FROM " + PlotsAndEntitiesUnionLayerName + " WHERE "
+            "ST_Touches(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
             "ROWID != " + std::to_string(FID);
         SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
         if (SQLLayer->GetFeatureCount() <= 2)
         {
           DataSource->ReleaseResultSet(SQLLayer);
-          m_SQLRequest = "SELECT ROWID as RID, * FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE "
-              "ST_Touches(geometry,(SELECT geometry FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
+          m_SQLRequest = "SELECT ROWID as RID, * FROM " + PlotsAndEntitiesUnionLayerName + " WHERE "
+              "ST_Touches(geometry,(SELECT geometry FROM " + PlotsAndEntitiesUnionLayerName + " WHERE ID == " + m_QMark + ID + m_QMark + ")) AND "
               "IDPlot == " + std::to_string(IDPlot) + " AND ROWID != " + std::to_string(FID);
           SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
           if (SQLLayer->GetFeatureCount() != 0)
@@ -3918,10 +4051,12 @@ void LandProcessor::createSRFandLNR()
     mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputEntitiesGroupedVectorFile).c_str());
   }
 
+  const std::string EntitiesGroupedLayerName = getLayerNameFromFilename(m_OutputEntitiesGroupedVectorFile);
+
   DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
-  m_SQLRequest = "SELECT ST_Union(geometry), ID, ID2, ID3 FROM " + m_OutputPlotsAndEntitiesUnionVectorFile.substr(0, m_OutputPlotsAndEntitiesUnionVectorFile.find(".")) + " GROUP BY ID, ID2, ID3 ORDER BY IDPlot ASC, ID ASC";
+  m_SQLRequest = "SELECT ST_Union(geometry), ID, ID2, ID3 FROM " + PlotsAndEntitiesUnionLayerName + " GROUP BY ID, ID2, ID3 ORDER BY IDPlot ASC, ID ASC";
   SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
-  FileName = m_OutputEntitiesGroupedVectorFile.substr(0, m_OutputEntitiesGroupedVectorFile.find("."));
+  FileName = EntitiesGroupedLayerName;
   DataSource->CopyLayer(SQLLayer, FileName.c_str(), nullptr);
   DataSource->ReleaseResultSet(SQLLayer);
   OGRDataSource::DestroyDataSource(DataSource);
@@ -3931,7 +4066,7 @@ void LandProcessor::createSRFandLNR()
   // belong to the same plot number 5, their IDs will be 5N1, 5N2 and 5N3, not 5N2, 5N9, 5N15)
   // =========================================================================================
 
-  Final = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesGroupedVectorFile).c_str(), TRUE );
+  Final = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputEntitiesGroupedVectorFile).c_str(), TRUE );
   FinalLayer = Final->GetLayer(0);
   FinalLayer->ResetReading();
 
@@ -4016,7 +4151,7 @@ void LandProcessor::createSRFandLNR()
   // Creating linear entities vector file - LNR.shp
   // ================================================================================
 
-  Final = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesGroupedVectorFile).c_str(), TRUE );
+  Final = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputEntitiesGroupedVectorFile).c_str(), TRUE );
   FinalLayer = Final->GetLayer(0);
   FinalLayer->ResetReading();
   mp_SRS = Final->GetLayer(0)->GetSpatialRef();
@@ -4048,9 +4183,9 @@ void LandProcessor::createSRFandLNR()
     IDPlot = std::stoi(FaceA.substr(0, FaceA.find("N")));
     if (IDPlot != 0)
     {
-      m_SQLRequest = "SELECT ST_CollectionExtract(ST_Intersection(geometry, (SELECT geometry FROM " + m_OutputEntitiesGroupedVectorFile.substr(0, m_OutputEntitiesGroupedVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FID) + ")),2), ID "
-          "FROM " + m_OutputEntitiesGroupedVectorFile.substr(0, m_OutputEntitiesGroupedVectorFile.find(".")) + " WHERE "
-          "ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + m_OutputEntitiesGroupedVectorFile.substr(0, m_OutputEntitiesGroupedVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FID) + "))) > 0";
+      m_SQLRequest = "SELECT ST_CollectionExtract(ST_Intersection(geometry, (SELECT geometry FROM " + EntitiesGroupedLayerName + " WHERE ROWID == " + std::to_string(FID) + ")),2), ID "
+          "FROM " + EntitiesGroupedLayerName + " WHERE "
+          "ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + EntitiesGroupedLayerName + " WHERE ROWID == " + std::to_string(FID) + "))) > 0";
       SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
       if (SQLLayer->GetFeatureCount() != 0)
       {
@@ -4091,9 +4226,11 @@ void LandProcessor::createSRFandLNR()
     mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputSurfaceEntitiesVectorFile).c_str());
   }
 
-  Final = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputEntitiesGroupedVectorFile).c_str(), TRUE );
-  m_SQLRequest = "SELECT ST_Union(geometry), ID, ID2 FROM " + m_OutputEntitiesGroupedVectorFile.substr(0, m_OutputEntitiesGroupedVectorFile.find(".")) + " GROUP BY ID, ID2";
-  FileName = m_OutputSurfaceEntitiesVectorFile.substr(0, m_OutputSurfaceEntitiesVectorFile.find("."));
+  const std::string SurfaceEntitiesLayerName = getLayerNameFromFilename(m_OutputSurfaceEntitiesVectorFile);
+
+  Final = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputEntitiesGroupedVectorFile).c_str(), TRUE );
+  m_SQLRequest = "SELECT ST_Union(geometry), ID, ID2 FROM " + EntitiesGroupedLayerName + " GROUP BY ID, ID2";
+  FileName = SurfaceEntitiesLayerName;
   SQLLayer = Final->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
   Final->CopyLayer(SQLLayer, FileName.c_str(), nullptr);
   Final->ReleaseResultSet(SQLLayer);
@@ -4102,7 +4239,7 @@ void LandProcessor::createSRFandLNR()
   FieldNamesTable.clear();
   FieldNamesTable = {"IDTo"};
 
-  SRF = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputSurfaceEntitiesVectorFile).c_str(), TRUE );
+  SRF = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputSurfaceEntitiesVectorFile).c_str(), TRUE );
   SRFLayer = SRF->GetLayer(0);
   SRFLayer->ResetReading();
 
@@ -4118,17 +4255,17 @@ void LandProcessor::createSRFandLNR()
   // Filling IDTo attribute for the linear entities
   // ================================================================================
 
-  LNR = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputLinearEntitiesVectorFile).c_str(), TRUE );
+  LNR = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputLinearEntitiesVectorFile).c_str(), TRUE );
   LNRLayer = LNR->GetLayer(0);
   LNRLayer->ResetReading();
 
-  DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputSurfaceEntitiesVectorFile).c_str(), TRUE );
+  DataSource = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputSurfaceEntitiesVectorFile).c_str(), TRUE );
 
   while ((LNRFeature = LNRLayer->GetNextFeature()) != nullptr)
   {
     FaceA = LNRFeature->GetFieldAsString("FaceA");
     FaceB = LNRFeature->GetFieldAsString("FaceB");
-    m_SQLRequest = "SELECT ID, ID2 FROM " + m_OutputSurfaceEntitiesVectorFile.substr(0, m_OutputSurfaceEntitiesVectorFile.find(".")) + " WHERE "
+    m_SQLRequest = "SELECT ID, ID2 FROM " + SurfaceEntitiesLayerName + " WHERE "
         "(ID == " + m_QMark + FaceA + m_QMark + " AND ID2 == " + m_QMark + FaceB + m_QMark + ") OR (ID == " + m_QMark + FaceB + m_QMark + " AND ID2 == " + m_QMark + FaceA + m_QMark + ")";
     SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
     if (SQLLayer->GetFeatureCount() != 0)
@@ -4210,8 +4347,8 @@ void LandProcessor::createSRFandLNR()
     FID = SRFFeature->GetFID();
     ID = SRFFeature->GetFieldAsString("ID");
     ID2 = SRFFeature->GetFieldAsString("ID2");
-    m_SQLRequest = "SELECT * FROM " + m_OutputSurfaceEntitiesVectorFile.substr(0, m_OutputSurfaceEntitiesVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID2 + m_QMark + " AND "
-        "ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + m_OutputSurfaceEntitiesVectorFile.substr(0, m_OutputSurfaceEntitiesVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FID) + "))) > 0";
+    m_SQLRequest = "SELECT * FROM " + SurfaceEntitiesLayerName + " WHERE ID == " + m_QMark + ID2 + m_QMark + " AND "
+        "ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + SurfaceEntitiesLayerName + " WHERE ROWID == " + std::to_string(FID) + "))) > 0";
     SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
     if (SQLLayer->GetFeatureCount() != 0)
     {
@@ -4270,11 +4407,23 @@ void LandProcessor::createSRFandLNR()
   OGRDataSource::DestroyDataSource(SRF);
   OGRDataSource::DestroyDataSource(DataSource);
 
+  m_VectorFilesToRelease.push_back(m_OutputSurfaceEntitiesVectorFile);
+  m_VectorFilesToRelease.push_back(m_OutputLinearEntitiesVectorFile);
 }
 
+
 // ====================================================================
 // ====================================================================
 
+
+/**
+  @internal
+  <hr>
+  Files
+    - m_InputPlotsVectorFile
+    - m_OutputSlopeRasterFile
+    - m_OutputSurfaceEntitiesVectorFile
+*/
 void LandProcessor::setSRFParameters()
 {
 
@@ -4325,7 +4474,7 @@ void LandProcessor::setSRFParameters()
   // Setting surface parameter for SRF (surface entities)
   // ==================================================================================
 
-  SRF = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputSurfaceEntitiesVectorFile).c_str(), TRUE );
+  SRF = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputSurfaceEntitiesVectorFile).c_str(), TRUE );
 
   SRFLayer = SRF->GetLayer(0);
   SRFLayer->ResetReading();
@@ -4362,9 +4511,11 @@ void LandProcessor::setSRFParameters()
   SRFLayer = SRF->GetLayer(0);
   SRFLayer->ResetReading();
 
-  Plots = OGRSFDriverRegistrar::Open( getInputVectorPath(m_InputPlotsFile).c_str(), TRUE );
+  Plots = OGRSFDriverRegistrar::Open( getInputVectorPath(m_InputPlotsVectorFile).c_str(), TRUE );
   PlotsLayer = Plots->GetLayer(0);
   FeatureDefn = PlotsLayer->GetLayerDefn();
+
+  const std::string InputPlotsLayerName = getLayerNameFromFilename(m_InputPlotsVectorFile);
 
   FieldNamesTable.clear();
 
@@ -4381,7 +4532,7 @@ void LandProcessor::setSRFParameters()
       IDPlot = std::stoi(ID.substr(0, ID.find("N")));
       if (IDPlot != 0)
       {
-        m_SQLRequest = "SELECT LandUse FROM " + m_InputPlotsFile.substr(0, m_InputPlotsFile.find(".")) + " WHERE " + m_IDFieldName + " == "  + std::to_string(IDPlot);
+        m_SQLRequest = "SELECT LandUse FROM " + InputPlotsLayerName + " WHERE " + m_IDFieldName + " == "  + std::to_string(IDPlot);
         SQLLayer = Plots->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
         LandUseValue = SQLLayer->GetFeature(0)->GetFieldAsString(m_LandUseFieldName.c_str());
         SRFFeature->SetField("LandUse", LandUseValue.c_str());
@@ -4412,10 +4563,10 @@ void LandProcessor::setSRFParameters()
   // Minimum, maximum and mean slope calculations for SRF
   // ================================================================================
 
-  SRF = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputSurfaceEntitiesVectorFile).c_str(), TRUE );
+  SRF = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputSurfaceEntitiesVectorFile).c_str(), TRUE );
   SRFLayer = SRF->GetLayer(0);
 
-  Slope = (GDALDataset *) GDALOpen( getOutputRasterPath(m_OutputSlopeRasterFile).c_str(), GA_ReadOnly );
+  Slope = (GDALDataset *) GDALOpen(getOutputRasterPath(m_OutputSlopeRasterFile).c_str(), GA_ReadOnly );
   SlopeBand = Slope->GetRasterBand(1);
 
   mp_RasterDriver = GetGDALDriverManager()->GetDriverByName("MEM");
@@ -4552,6 +4703,12 @@ void LandProcessor::setSRFParameters()
 // =====================================================================
 
 
+/**
+  @internal
+  <hr>
+  Files
+    - m_OutputLinearEntitiesVectorFile
+*/
 void LandProcessor::setLNRParameters()
 {
 
@@ -4578,7 +4735,7 @@ void LandProcessor::setLNRParameters()
   //  Calculate length for LNR (linear entities)
   // ================================================================================
 
-  LNR = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputLinearEntitiesVectorFile).c_str(), TRUE );
+  LNR = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputLinearEntitiesVectorFile).c_str(), TRUE );
   LNRLayer = LNR->GetLayer(0);
   LNRLayer->ResetReading();
 
@@ -4610,7 +4767,13 @@ void LandProcessor::setLNRParameters()
 // =====================================================================
 // =====================================================================
 
-
+/**
+  @internal
+  <hr>
+  Files
+    - m_OutputSurfaceEntitiesVectorFile
+    - m_OutputSUVectorFile
+*/
 void LandProcessor::createSU()
 {
 
@@ -4646,8 +4809,11 @@ void LandProcessor::createSU()
     mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputSUVectorFile).c_str());
   }
 
-  m_SQLRequest = "SELECT * FROM " + m_OutputSurfaceEntitiesVectorFile.substr(0, m_OutputSurfaceEntitiesVectorFile.find(".")) + " WHERE ID != " + m_QMark + "0N1" + m_QMark;
-  FileName = m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find("."));
+  const std::string SurfaceEntitiesLayerName = getLayerNameFromFilename(m_OutputSurfaceEntitiesVectorFile);
+  const std::string SULayerName = getLayerNameFromFilename(m_OutputSUVectorFile);
+
+  m_SQLRequest = "SELECT * FROM " + SurfaceEntitiesLayerName + " WHERE ID != " + m_QMark + "0N1" + m_QMark;
+  FileName = SULayerName;
   SQLLayer = SRF->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
   SRF->CopyLayer(SQLLayer, FileName.c_str(), nullptr);
   SRF->ReleaseResultSet(SQLLayer);
@@ -4677,13 +4843,24 @@ void LandProcessor::createSU()
   SULayer->SyncToDisk();
   OGRDataSource::DestroyDataSource(SU);
 
+  m_VectorFilesToRelease.push_back(m_OutputSUVectorFile);
+
 }
 
 
 // =====================================================================
 // =====================================================================
 
-
+/**
+  @internal
+  <hr>
+  Files
+    - m_InputDitchesVectorFile
+    - m_InputThalwegsVectorFile
+    - m_InputRiversVectorFile
+    - m_OutputLinearEntitiesVectorFile
+    - m_OutputRSVectorFile
+*/
 void LandProcessor::createRS()
 {
 
@@ -4699,7 +4876,8 @@ void LandProcessor::createRS()
 
   std::string ID, IDTo;
 
-  std::vector <std::string> FieldNamesTable, FieldNamesLTable, FileNamesTab = {m_InputDitchesFile, m_InputThalwegsFile, m_InputRivesrFile};;
+  std::vector <std::string> FieldNamesTable, FieldNamesLTable, FileNamesTab =
+    {m_InputDitchesVectorFile, m_InputThalwegsVectorFile, m_InputRiversVectorFile};
 
   OGRDataSource *DataSource, *LNR, *RS;
   OGRLayer *SQLLayer, *LNRLayer, *RSLayer;
@@ -4715,9 +4893,9 @@ void LandProcessor::createRS()
   }
 
 
-  if (!openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputDitchesFile)) and
-      !openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputThalwegsFile)) and
-      !openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputRivesrFile)))
+  if (!openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputDitchesVectorFile)) and
+      !openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputThalwegsVectorFile)) and
+      !openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputRiversVectorFile)))
   {
     std::cout << "LandProcessor::createRS(): There are no linear structure files in the input vector directory that could be used to create RS vector" << std::endl;
   }
@@ -4792,7 +4970,9 @@ void LandProcessor::createRS()
       }
     }
 
-    m_SQLRequest = "REPACK " + m_OutputRSVectorFile.substr(0, m_OutputRSVectorFile.find("."));
+    const std::string RSLayerName = getLayerNameFromFilename(m_OutputRSVectorFile);
+
+    m_SQLRequest = "REPACK " + RSLayerName;
     RS->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
     OGRDataSource::DestroyDataSource(RS);
 
@@ -4830,13 +5010,15 @@ void LandProcessor::createRS()
         DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
         RS = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputRSVectorFile).c_str(), TRUE );
         RSLayer = RS->GetLayer(0);
+        const std::string FileLayerName = FileNamesTab[i].substr(0, FileNamesTab[i].find(".shp"));
+
         for (int j = 0; j < RSLayer->GetFeatureCount(); j++)
         {
           RSFeature = RSLayer->GetFeature(j);
           RSGeometry = RSFeature->GetGeometryRef();
-          m_SQLRequest = "SELECT ST_Length(ST_Intersection(geometry,(SELECT ST_Buffer(geometry,0.05) FROM " + m_OutputRSVectorFile.substr(0, m_OutputRSVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(RSFeature->GetFID()) + "))) AS Length "
-              "FROM " + FileNamesTab[i].substr(0, FileNamesTab[i].find(".shp")) + " "
-              "WHERE ST_Length(ST_Intersection(geometry,(SELECT ST_Buffer(geometry,0.05) FROM " + m_OutputRSVectorFile.substr(0, m_OutputRSVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(RSFeature->GetFID()) + "))) > 0.1";
+          m_SQLRequest = "SELECT ST_Length(ST_Intersection(geometry,(SELECT ST_Buffer(geometry,0.05) FROM " + RSLayerName + " WHERE ROWID == " + std::to_string(RSFeature->GetFID()) + "))) AS Length "
+              "FROM " + FileLayerName + " "
+              "WHERE ST_Length(ST_Intersection(geometry,(SELECT ST_Buffer(geometry,0.05) FROM " + RSLayerName + " WHERE ROWID == " + std::to_string(RSFeature->GetFID()) + "))) > 0.1";
           SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
           if (SQLLayer->GetFeatureCount() > 0)
           {
@@ -4916,7 +5098,7 @@ void LandProcessor::createRS()
       }
     }
 
-    m_SQLRequest = "REPACK " + m_OutputRSVectorFile.substr(0, m_OutputRSVectorFile.find("."));
+    m_SQLRequest = "REPACK " + RSLayerName;
     RS->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
 
     OGRDataSource::DestroyDataSource(RS);
@@ -4949,11 +5131,26 @@ void LandProcessor::createRS()
     OGRDataSource::DestroyDataSource(RS);
   }
 
+  m_VectorFilesToRelease.push_back(m_OutputRSVectorFile);
+
 }
 
+
 // ====================================================================
 // ====================================================================
 
+
+/**
+  @internal
+  <hr>
+  Files
+    - m_InputHedgesVectorFile
+    - m_InputGrassBandVectorFile
+    - m_InputBenchesVectorFile
+    - m_OutputLinearEntitiesVectorFile
+    - m_OutputRSVectorFile
+    - m_OutputLIVectorFile
+*/
 void LandProcessor::createLI()
 {
 
@@ -4969,7 +5166,8 @@ void LandProcessor::createLI()
 
   std::string ID, IDTo;
 
-  std::vector <std::string> FieldNamesTable, FieldNamesLTable, FileNamesTab = {m_InputHedgesFile, m_InputGrassBandFile, m_InputBenchesFile};
+  std::vector <std::string> FieldNamesTable, FieldNamesLTable, FileNamesTab =
+    {m_InputHedgesVectorFile, m_InputGrassBandVectorFile, m_InputBenchesVectorFile};
 
   OGRDataSource *DataSource, *LNR, *LI;
   OGRLayer *SQLLayer, *LNRLayer, *LILayer;
@@ -4984,9 +5182,9 @@ void LandProcessor::createLI()
     throw std::runtime_error("LandProcessor::createLI(): " + m_OutputLinearEntitiesVectorFile + ": no such file in the output vector directory");
   }
 
-  if (!openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputHedgesFile)) and
-      !openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputGrassBandFile)) and
-      !openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputBenchesFile)))
+  if (!openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputHedgesVectorFile)) and
+      !openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputGrassBandVectorFile)) and
+      !openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputBenchesVectorFile)))
   {
     std::cout << "LandProcessor::createLI(): There are no linear structure files in the input vector directory that could be used to create LI vector" << std::endl;
   }
@@ -5061,7 +5259,10 @@ void LandProcessor::createLI()
       }
     }
 
-    m_SQLRequest = "REPACK " + m_OutputLIVectorFile.substr(0, m_OutputLIVectorFile.find("."));
+    const std::string LILayerName = getLayerNameFromFilename(m_OutputLIVectorFile);
+    const std::string RSLayerName = getLayerNameFromFilename(m_OutputRSVectorFile);
+
+    m_SQLRequest = "REPACK " + LILayerName;
     LI->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
     OGRDataSource::DestroyDataSource(LI);
 
@@ -5079,7 +5280,7 @@ void LandProcessor::createLI()
       while ((LIFeature = LILayer->GetNextFeature()) != nullptr)
       {
         ID = LIFeature->GetFieldAsString("ID");
-        m_SQLRequest = "SELECT ID FROM " + m_OutputRSVectorFile.substr(0, m_OutputRSVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark;
+        m_SQLRequest = "SELECT ID FROM " + RSLayerName + " WHERE ID == " + m_QMark + ID + m_QMark;
         SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
         if (SQLLayer->GetFeatureCount() != 0)
         {
@@ -5114,9 +5315,9 @@ void LandProcessor::createLI()
         {
           LIFeature = LILayer->GetFeature(j);
           LIGeometry = LIFeature->GetGeometryRef();
-          m_SQLRequest = "SELECT ST_Length(ST_Intersection(geometry,(SELECT ST_Buffer(geometry,0.05) FROM " + m_OutputLIVectorFile.substr(0, m_OutputLIVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(LIFeature->GetFID()) + "))) AS Length "
+          m_SQLRequest = "SELECT ST_Length(ST_Intersection(geometry,(SELECT ST_Buffer(geometry,0.05) FROM " + LILayerName + " WHERE ROWID == " + std::to_string(LIFeature->GetFID()) + "))) AS Length "
               "FROM " + FileNamesTab[i].substr(0, FileNamesTab[i].find(".shp")) + " "
-              "WHERE ST_Length(ST_Intersection(geometry,(SELECT ST_Buffer(geometry,0.05) FROM " + m_OutputLIVectorFile.substr(0, m_OutputLIVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(LIFeature->GetFID()) + "))) > 0.1";
+              "WHERE ST_Length(ST_Intersection(geometry,(SELECT ST_Buffer(geometry,0.05) FROM " + LILayerName + " WHERE ROWID == " + std::to_string(LIFeature->GetFID()) + "))) > 0.1";
           SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
           if (SQLLayer->GetFeatureCount() > 0)
           {
@@ -5196,7 +5397,7 @@ void LandProcessor::createLI()
       }
     }
 
-    m_SQLRequest = "REPACK " + m_OutputLIVectorFile.substr(0, m_OutputLIVectorFile.find("."));
+    m_SQLRequest = "REPACK " + LILayerName;
     LI->ExecuteSQL(m_SQLRequest.c_str(), nullptr, nullptr);
 
     OGRDataSource::DestroyDataSource(LI);
@@ -5229,12 +5430,23 @@ void LandProcessor::createLI()
     OGRDataSource::DestroyDataSource(LI);
   }
 
+  m_VectorFilesToRelease.push_back(m_OutputLIVectorFile);
+
 }
 
+
 // ====================================================================
 // ====================================================================
 
 
+/**
+  @internal
+  <hr>
+  Files
+    - m_OutputRSVectorFile
+    - m_OutputLIVectorFile
+    - m_OutputSUVectorFile
+*/
 void LandProcessor::setSUParameters()
 {
 
@@ -5265,7 +5477,11 @@ void LandProcessor::setSUParameters()
   // Set IDTo parameter based on LI# and RS#
   // ==================================================================================
 
-  SU = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputSUVectorFile).c_str(), TRUE );
+  const std::string RSLayerName = getLayerNameFromFilename(m_OutputRSVectorFile);
+  const std::string SULayerName = getLayerNameFromFilename(m_OutputSUVectorFile);
+  const std::string LILayerName = getLayerNameFromFilename(m_OutputLIVectorFile);
+
+  SU = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputSUVectorFile).c_str(), TRUE );
   SULayer = SU->GetLayer(0);
   SULayer->ResetReading();
 
@@ -5291,14 +5507,14 @@ void LandProcessor::setSUParameters()
     {
       if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputLIVectorFile)))
       {
-        m_SQLRequest = "SELECT * FROM " + m_OutputLIVectorFile.substr(0, m_OutputLIVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark;
+        m_SQLRequest = "SELECT * FROM " + LILayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark;
         SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
         if (SQLLayer->GetFeatureCount() == 0)
         {
           DataSource->ReleaseResultSet(SQLLayer);
           if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputRSVectorFile)))
           {
-            m_SQLRequest = "SELECT * FROM " + m_OutputRSVectorFile.substr(0, m_OutputRSVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark;
+            m_SQLRequest = "SELECT * FROM " + RSLayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark;
             SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
             if (SQLLayer->GetFeatureCount() == 0)
             {
@@ -5340,7 +5556,7 @@ void LandProcessor::setSUParameters()
   // Set IDTo parameter in case there are no LI# or RS# that correspond to it
   // ==================================================================================
 
-  SU = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputSUVectorFile).c_str(), TRUE );
+  SU = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputSUVectorFile).c_str(), TRUE );
   SULayer = SU->GetLayer(0);
   SULayer->ResetReading();
 
@@ -5368,7 +5584,7 @@ void LandProcessor::setSUParameters()
   SULayer = SU->GetLayer(0);
   SULayer->ResetReading();
 
-  DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
+  DataSource = OGRSFDriverRegistrar::Open(getOutputVectorPath().c_str(), TRUE );
 
   while ((SUFeature = SULayer->GetNextFeature()) != nullptr)
   {
@@ -5379,30 +5595,30 @@ void LandProcessor::setSUParameters()
       if (IDTo != "SU#0N1")
       {
         m_SQLRequest = "SELECT ST_Intersection(geometry, "
-            "(SELECT geometry FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + ")) FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark;
+            "(SELECT geometry FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + ")) FROM " + SULayerName + " WHERE ID == " + m_QMark + ID + m_QMark;
         SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
         if (SQLLayer->GetFeature(0)->GetGeometryRef()->getGeometryType() == 1)
         {
           DataSource->ReleaseResultSet(SQLLayer);
-          m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + " AND "
-              "ST_Within((SELECT ST_Centroid(geometry) FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + "),"
-              "(SELECT geometry FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + "))";
+          m_SQLRequest = "SELECT ROWID as RID FROM " + SULayerName + " WHERE ID == " + m_QMark + ID + m_QMark + " AND "
+              "ST_Within((SELECT ST_Centroid(geometry) FROM " + SULayerName + " WHERE ID == " + m_QMark + ID + m_QMark + "),"
+              "(SELECT geometry FROM " + SULayerName + " WHERE ID == " + m_QMark + ID + m_QMark + "))";
           SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
           N1 = SQLLayer->GetFeatureCount();
           DataSource->ReleaseResultSet(SQLLayer);
-          m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + " AND "
-              "ST_Within((SELECT ST_Centroid(geometry) FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
-              "(SELECT geometry FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "))";
+          m_SQLRequest = "SELECT ROWID as RID FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + " AND "
+              "ST_Within((SELECT ST_Centroid(geometry) FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
+              "(SELECT geometry FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "))";
           SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
           N2 = SQLLayer->GetFeatureCount();
           DataSource->ReleaseResultSet(SQLLayer);
           if (N1 == 1 and N2 == 1)
           {
             m_SQLRequest = "SELECT geometry, ST_Distance(ST_Centroid(geometry),"
-                "((SELECT ST_Intersection((SELECT geometry FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "), geometry)))) + "
-                "ST_Distance((SELECT ST_Centroid(geometry) FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
-                "((SELECT ST_Intersection((SELECT geometry FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
-                "geometry)))) AS Distance FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark; //TODO: simplify complicated SQL request
+                "((SELECT ST_Intersection((SELECT geometry FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "), geometry)))) + "
+                "ST_Distance((SELECT ST_Centroid(geometry) FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
+                "((SELECT ST_Intersection((SELECT geometry FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
+                "geometry)))) AS Distance FROM " + SULayerName + " WHERE ID == " + m_QMark + ID + m_QMark; //TODO: simplify complicated SQL request
             SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
             SUFeature->SetField("FlowDist", SQLLayer->GetFeature(0)->GetFieldAsDouble("Distance"));
             SULayer->SetFeature(SUFeature);
@@ -5411,10 +5627,10 @@ void LandProcessor::setSUParameters()
           else if (N1 == 0 and N2 == 0)
           {
             m_SQLRequest = "SELECT geometry, ST_Distance(ST_PointOnSurface(geometry),"
-                "((SELECT ST_Intersection((SELECT geometry FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "), geometry)))) + "
-                "ST_Distance((SELECT ST_PointOnSurface(geometry) FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
-                "((SELECT ST_Intersection((SELECT geometry FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
-                "geometry)))) AS Distance FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark;
+                "((SELECT ST_Intersection((SELECT geometry FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "), geometry)))) + "
+                "ST_Distance((SELECT ST_PointOnSurface(geometry) FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
+                "((SELECT ST_Intersection((SELECT geometry FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
+                "geometry)))) AS Distance FROM " + SULayerName + " WHERE ID == " + m_QMark + ID + m_QMark;
             SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
             SUFeature->SetField("FlowDist", SQLLayer->GetFeature(0)->GetFieldAsDouble("Distance"));
             SULayer->SetFeature(SUFeature);
@@ -5423,10 +5639,10 @@ void LandProcessor::setSUParameters()
           else if (N1 == 1 and N2 == 0)
           {
             m_SQLRequest = "SELECT geometry, ST_Distance(ST_Centroid(geometry),"
-                "((SELECT ST_Intersection((SELECT geometry FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "), geometry)))) + "
-                "ST_Distance((SELECT ST_PointOnSurface(geometry) FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
-                "((SELECT ST_Intersection((SELECT geometry FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
-                "geometry)))) AS Distance FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark;
+                "((SELECT ST_Intersection((SELECT geometry FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "), geometry)))) + "
+                "ST_Distance((SELECT ST_PointOnSurface(geometry) FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
+                "((SELECT ST_Intersection((SELECT geometry FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
+                "geometry)))) AS Distance FROM " + SULayerName + " WHERE ID == " + m_QMark + ID + m_QMark;
             SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
             SUFeature->SetField("FlowDist", SQLLayer->GetFeature(0)->GetFieldAsDouble("Distance"));
             SULayer->SetFeature(SUFeature);
@@ -5435,10 +5651,10 @@ void LandProcessor::setSUParameters()
           else if (N1 == 0 and N2 == 1)
           {
             m_SQLRequest = "SELECT geometry, ST_Distance(ST_PointOnSurface(geometry),"
-                "((SELECT ST_Intersection((SELECT geometry FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "), geometry)))) + "
-                "ST_Distance((SELECT ST_Centroid(geometry) FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
-                "((SELECT ST_Intersection((SELECT geometry FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
-                "geometry)))) AS Distance FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark;
+                "((SELECT ST_Intersection((SELECT geometry FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "), geometry)))) + "
+                "ST_Distance((SELECT ST_Centroid(geometry) FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
+                "((SELECT ST_Intersection((SELECT geometry FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
+                "geometry)))) AS Distance FROM " + SULayerName + " WHERE ID == " + m_QMark + ID + m_QMark;
             SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
             SUFeature->SetField("FlowDist", SQLLayer->GetFeature(0)->GetFieldAsDouble("Distance"));
             SULayer->SetFeature(SUFeature);
@@ -5448,25 +5664,25 @@ void LandProcessor::setSUParameters()
         else
         {
           DataSource->ReleaseResultSet(SQLLayer);
-          m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + " AND "
-              "ST_Within((SELECT ST_Centroid(geometry) FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + "),"
-              "(SELECT geometry FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + "))";
+          m_SQLRequest = "SELECT ROWID as RID FROM " + SULayerName + " WHERE ID == " + m_QMark + ID + m_QMark + " AND "
+              "ST_Within((SELECT ST_Centroid(geometry) FROM " + SULayerName + " WHERE ID == " + m_QMark + ID + m_QMark + "),"
+              "(SELECT geometry FROM " + SULayerName + " WHERE ID == " + m_QMark + ID + m_QMark + "))";
           SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
           N1 = SQLLayer->GetFeatureCount();
           DataSource->ReleaseResultSet(SQLLayer);
-          m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + " AND "
-              "ST_Within((SELECT ST_Centroid(geometry) FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
-              "(SELECT geometry FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "))";
+          m_SQLRequest = "SELECT ROWID as RID FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + " AND "
+              "ST_Within((SELECT ST_Centroid(geometry) FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
+              "(SELECT geometry FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "))";
           SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
           N2 = SQLLayer->GetFeatureCount();
           DataSource->ReleaseResultSet(SQLLayer);
           if (N1 == 1 and N2 == 1)
           {
             m_SQLRequest = "SELECT geometry, ST_Distance(ST_Centroid(geometry), ST_Line_Interpolate_Point(ST_LineMerge(ST_Intersection((geometry),"
-                "(SELECT geometry FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "))), 0.5)) + "
-                "ST_Distance((SELECT ST_Centroid(geometry) FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
-                "ST_Line_Interpolate_Point(ST_LineMerge(ST_Intersection((geometry),(SELECT geometry FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID ==" + m_QMark + IDTo + m_QMark + "))), 0.5)) "
-                "AS Distance FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark;
+                "(SELECT geometry FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "))), 0.5)) + "
+                "ST_Distance((SELECT ST_Centroid(geometry) FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
+                "ST_Line_Interpolate_Point(ST_LineMerge(ST_Intersection((geometry),(SELECT geometry FROM " + SULayerName + " WHERE ID ==" + m_QMark + IDTo + m_QMark + "))), 0.5)) "
+                "AS Distance FROM " + SULayerName + " WHERE ID == " + m_QMark + ID + m_QMark;
             SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
             SUFeature->SetField("FlowDist", SQLLayer->GetFeature(0)->GetFieldAsDouble("Distance"));
             SULayer->SetFeature(SUFeature);
@@ -5475,10 +5691,10 @@ void LandProcessor::setSUParameters()
           else if (N1 == 0 and N2 == 0)
           {
             m_SQLRequest = "SELECT geometry, ST_Distance(ST_PointOnSurface(geometry), ST_Line_Interpolate_Point(ST_LineMerge(ST_Intersection((geometry),"
-                "(SELECT geometry FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "))), 0.5)) + "
-                "ST_Distance((SELECT ST_PointOnSurface(geometry) FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
-                "ST_Line_Interpolate_Point(ST_LineMerge(ST_Intersection((geometry),(SELECT geometry FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "))), 0.5)) "
-                "AS Distance FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark;
+                "(SELECT geometry FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "))), 0.5)) + "
+                "ST_Distance((SELECT ST_PointOnSurface(geometry) FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
+                "ST_Line_Interpolate_Point(ST_LineMerge(ST_Intersection((geometry),(SELECT geometry FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "))), 0.5)) "
+                "AS Distance FROM " + SULayerName + " WHERE ID == " + m_QMark + ID + m_QMark;
             SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
             SUFeature->SetField("FlowDist", SQLLayer->GetFeature(0)->GetFieldAsDouble("Distance"));
             SULayer->SetFeature(SUFeature);
@@ -5487,10 +5703,10 @@ void LandProcessor::setSUParameters()
           else if (N1 == 1 and N2 == 0)
           {
             m_SQLRequest = "SELECT geometry, ST_Distance(ST_Centroid(geometry), ST_Line_Interpolate_Point(ST_LineMerge(ST_Intersection((geometry),"
-                "(SELECT geometry FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "))), 0.5)) + "
-                "ST_Distance((SELECT ST_PointOnSurface(geometry) FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
-                "ST_Line_Interpolate_Point(ST_LineMerge(ST_Intersection((geometry),(SELECT geometry FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "))), 0.5)) "
-                "AS Distance FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark;
+                "(SELECT geometry FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "))), 0.5)) + "
+                "ST_Distance((SELECT ST_PointOnSurface(geometry) FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
+                "ST_Line_Interpolate_Point(ST_LineMerge(ST_Intersection((geometry),(SELECT geometry FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "))), 0.5)) "
+                "AS Distance FROM " + SULayerName + " WHERE ID == " + m_QMark + ID + m_QMark;
             SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
             SUFeature->SetField("FlowDist", SQLLayer->GetFeature(0)->GetFieldAsDouble("Distance"));
             SULayer->SetFeature(SUFeature);
@@ -5499,10 +5715,10 @@ void LandProcessor::setSUParameters()
           else if (N1 == 0 and N2 == 1)
           {
             m_SQLRequest = "SELECT geometry, ST_Distance(ST_PointOnSurface(geometry), ST_Line_Interpolate_Point(ST_LineMerge(ST_Intersection((geometry),"
-                "(SELECT geometry FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "))), 0.5)) + "
-                "ST_Distance((SELECT ST_Centroid(geometry) FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
-                "ST_Line_Interpolate_Point(ST_LineMerge(ST_Intersection((geometry),(SELECT geometry FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark + "))), 0.5)) "
-                "AS Distance FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark;
+                "(SELECT geometry FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "))), 0.5)) + "
+                "ST_Distance((SELECT ST_Centroid(geometry) FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "),"
+                "ST_Line_Interpolate_Point(ST_LineMerge(ST_Intersection((geometry),(SELECT geometry FROM " + SULayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark + "))), 0.5)) "
+                "AS Distance FROM " + SULayerName + " WHERE ID == " + m_QMark + ID + m_QMark;
             SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
             SUFeature->SetField("FlowDist", SQLLayer->GetFeature(0)->GetFieldAsDouble("Distance"));
             SULayer->SetFeature(SUFeature);
@@ -5514,15 +5730,15 @@ void LandProcessor::setSUParameters()
     else if (IDTo.find("LI") != std::string::npos)
     {
       IDTo = IDTo.substr(IDTo.find("#")+1, IDTo.length()-1);
-      m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + " AND "
-          "ST_Within((SELECT ST_Centroid(geometry) FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + "),"
-          "(SELECT geometry FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + "))";
+      m_SQLRequest = "SELECT ROWID as RID FROM " + SULayerName + " WHERE ID == " + m_QMark + ID + m_QMark + " AND "
+          "ST_Within((SELECT ST_Centroid(geometry) FROM " + SULayerName + " WHERE ID == " + m_QMark + ID + m_QMark + "),"
+          "(SELECT geometry FROM " + SULayerName + " WHERE ID == " + m_QMark + ID + m_QMark + "))";
       SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
       if (SQLLayer->GetFeatureCount() == 1)
       {
         DataSource->ReleaseResultSet(SQLLayer);
-        m_SQLRequest = "SELECT geometry, ST_Distance(ST_Centroid(geometry), (SELECT geometry FROM " + m_OutputLIVectorFile.substr(0, m_OutputLIVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark +"))" //Used to be ST_Line_Interpolate_Point(ST_LineMerge(geometry), 0.5) in the attribution
-            " AS Distance FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark;
+        m_SQLRequest = "SELECT geometry, ST_Distance(ST_Centroid(geometry), (SELECT geometry FROM " + LILayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark +"))" //Used to be ST_Line_Interpolate_Point(ST_LineMerge(geometry), 0.5) in the attribution
+            " AS Distance FROM " + SULayerName + " WHERE ID == " + m_QMark + ID + m_QMark;
         SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
         SUFeature->SetField("FlowDist", SQLLayer->GetFeature(0)->GetFieldAsDouble("Distance"));
         SULayer->SetFeature(SUFeature);
@@ -5531,8 +5747,8 @@ void LandProcessor::setSUParameters()
       else if (SQLLayer->GetFeatureCount() == 0)
       {
         DataSource->ReleaseResultSet(SQLLayer);
-        m_SQLRequest = "SELECT geometry, ST_Distance(ST_PointOnSurface(geometry), (SELECT geometry FROM " + m_OutputLIVectorFile.substr(0, m_OutputLIVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark +"))"
-            " AS Distance FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark; //16/12/2016/17:00 Simplified the selection here
+        m_SQLRequest = "SELECT geometry, ST_Distance(ST_PointOnSurface(geometry), (SELECT geometry FROM " + LILayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark +"))"
+            " AS Distance FROM " + SULayerName + " WHERE ID == " + m_QMark + ID + m_QMark; //16/12/2016/17:00 Simplified the selection here
         SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
         SUFeature->SetField("FlowDist", SQLLayer->GetFeature(0)->GetFieldAsDouble("Distance"));
         SULayer->SetFeature(SUFeature);
@@ -5546,14 +5762,14 @@ void LandProcessor::setSUParameters()
     else if (IDTo.find("RS") != std::string::npos)
     {
       IDTo = IDTo.substr(IDTo.find("#")+1, IDTo.length()-1);
-      m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + " AND "
-          "ST_Within(ST_Centroid(geometry), (SELECT geometry FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark + "))"; //16/12/2016/17:00 Simplified the selection here
+      m_SQLRequest = "SELECT ROWID as RID FROM " + SULayerName + " WHERE ID == " + m_QMark + ID + m_QMark + " AND "
+          "ST_Within(ST_Centroid(geometry), (SELECT geometry FROM " + SULayerName + " WHERE ID == " + m_QMark + ID + m_QMark + "))"; //16/12/2016/17:00 Simplified the selection here
       SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
       if (SQLLayer->GetFeatureCount() == 1)
       {
         DataSource->ReleaseResultSet(SQLLayer);
-        m_SQLRequest = "SELECT geometry, ST_Distance(ST_Centroid(geometry), (SELECT geometry FROM " + m_OutputRSVectorFile.substr(0, m_OutputRSVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark +"))" //TODO: Use ST_Line_Interpolate_Point(ST_LineMerge(geometry), 0.5) in the attribution
-            " AS Distance FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark; //16/12/2016/17:00 Simplified the selection here
+        m_SQLRequest = "SELECT geometry, ST_Distance(ST_Centroid(geometry), (SELECT geometry FROM " + RSLayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark +"))" //TODO: Use ST_Line_Interpolate_Point(ST_LineMerge(geometry), 0.5) in the attribution
+            " AS Distance FROM " + SULayerName + " WHERE ID == " + m_QMark + ID + m_QMark; //16/12/2016/17:00 Simplified the selection here
         SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
         SUFeature->SetField("FlowDist", SQLLayer->GetFeature(0)->GetFieldAsDouble("Distance"));
         SULayer->SetFeature(SUFeature);
@@ -5562,8 +5778,8 @@ void LandProcessor::setSUParameters()
       else if (SQLLayer->GetFeatureCount() == 0)
       {
         DataSource->ReleaseResultSet(SQLLayer);
-        m_SQLRequest = "SELECT geometry, ST_Distance(ST_PointOnSurface(geometry), (SELECT geometry FROM " + m_OutputRSVectorFile.substr(0, m_OutputRSVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDTo + m_QMark +"))"
-            " AS Distance FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark; //16/12/2016/17:00 Simplified the selection here
+        m_SQLRequest = "SELECT geometry, ST_Distance(ST_PointOnSurface(geometry), (SELECT geometry FROM " + RSLayerName + " WHERE ID == " + m_QMark + IDTo + m_QMark +"))"
+            " AS Distance FROM " + SULayerName + " WHERE ID == " + m_QMark + ID + m_QMark; //16/12/2016/17:00 Simplified the selection here
         SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
         SUFeature->SetField("FlowDist", SQLLayer->GetFeature(0)->GetFieldAsDouble("Distance"));
         SULayer->SetFeature(SUFeature);
@@ -5581,9 +5797,17 @@ void LandProcessor::setSUParameters()
 
 }
 
+
 // ====================================================================
 // ====================================================================
 
+
+/**
+  @internal
+  <hr>
+  Files
+    - m_OutputRSVectorFile
+*/
 void LandProcessor::setRSParameters()
 {
 
@@ -5617,13 +5841,15 @@ void LandProcessor::setRSParameters()
     RSLayer = RS->GetLayer(0);
     RSLayer->ResetReading();
 
+    const std::string SULayerName = getLayerNameFromFilename(m_OutputSUVectorFile);
+
     DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
 
     while((RSFeature = RSLayer->GetNextFeature()) != nullptr)
     {
       ID = RSFeature->GetFieldAsString("ID");
       IDFrom = "SU#" + ID.substr(0, ID.find("-"));
-      m_SQLRequest = "SELECT Surface FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDFrom + m_QMark + " "
+      m_SQLRequest = "SELECT Surface FROM " + SULayerName + " WHERE ID == " + m_QMark + IDFrom + m_QMark + " "
           "AND IDTo == " + m_QMark + "RS#" + ID + m_QMark;
       SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
       if (SQLLayer->GetFeatureCount() != 0)
@@ -5660,9 +5886,17 @@ void LandProcessor::setRSParameters()
   }
 }
 
+
 // ====================================================================
 // ====================================================================
 
+
+/**
+  @internal
+  <hr>
+  Files
+    - m_OutputLIVectorFile
+*/
 void LandProcessor::setLIParameters()
 {
 
@@ -5695,13 +5929,16 @@ void LandProcessor::setLIParameters()
     LILayer = LI->GetLayer(0);
     LILayer->ResetReading();
 
+    const std::string LILayerName = getLayerNameFromFilename(m_OutputLIVectorFile);
+    const std::string SULayerName = getLayerNameFromFilename(m_OutputSUVectorFile);
+
     DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
 
     while((LIFeature = LILayer->GetNextFeature()) != nullptr)
     {
       ID = LIFeature->GetFieldAsString("ID");
       IDFrom = "SU#" + ID.substr(0, ID.find("-"));
-      m_SQLRequest = "SELECT Surface FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + IDFrom + m_QMark + " AND "
+      m_SQLRequest = "SELECT Surface FROM " + SULayerName + " WHERE ID == " + m_QMark + IDFrom + m_QMark + " AND "
           "IDTo == " + m_QMark + "LI#" + ID + m_QMark;
       SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
       if (SQLLayer->GetFeatureCount() != 0)
@@ -5734,14 +5971,14 @@ void LandProcessor::setLIParameters()
       IDTo = LIFeature->GetFieldAsString("IDTo");
       if (IDTo.find("-") == std::string::npos)
       {
-        m_SQLRequest = "SELECT ROWID as RID FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + "SU#" + IDTo + m_QMark + " AND "
+        m_SQLRequest = "SELECT ROWID as RID FROM " + SULayerName + " WHERE ID == " + m_QMark + "SU#" + IDTo + m_QMark + " AND "
             "ST_Within(ST_Centroid(geometry), geometry)";
         SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
         if (SQLLayer->GetFeatureCount() == 1)
         {
           DataSource->ReleaseResultSet(SQLLayer);
-          m_SQLRequest = "SELECT geometry, ST_Distance((SELECT ST_Centroid(geometry) FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + "SU#" + IDTo + m_QMark + "),"
-              "geometry) AS Distance FROM " + m_OutputLIVectorFile.substr(0, m_OutputLIVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark; //16/12/2016/17:00 Simplified the selection here
+          m_SQLRequest = "SELECT geometry, ST_Distance((SELECT ST_Centroid(geometry) FROM " + SULayerName + " WHERE ID == " + m_QMark + "SU#" + IDTo + m_QMark + "),"
+              "geometry) AS Distance FROM " + LILayerName + " WHERE ID == " + m_QMark + ID + m_QMark; //16/12/2016/17:00 Simplified the selection here
           SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
           LIFeature->SetField("FlowDist", SQLLayer->GetFeature(0)->GetFieldAsDouble("Distance"));
           LILayer->SetFeature(LIFeature);
@@ -5750,8 +5987,8 @@ void LandProcessor::setLIParameters()
         else if (SQLLayer->GetFeatureCount() == 0)
         {
           DataSource->ReleaseResultSet(SQLLayer);
-          m_SQLRequest = "SELECT geometry, ST_Distance((SELECT ST_PointOnSurface(geometry) FROM " + m_OutputSUVectorFile.substr(0, m_OutputSUVectorFile.find(".")) + " WHERE ID == " + m_QMark + "SU#" + IDTo + m_QMark + "),"
-              "geometry) AS Distance FROM " + m_OutputLIVectorFile.substr(0, m_OutputLIVectorFile.find(".")) + " WHERE ID == " + m_QMark + ID + m_QMark; //16/12/2016/17:00 Simplified the selection here
+          m_SQLRequest = "SELECT geometry, ST_Distance((SELECT ST_PointOnSurface(geometry) FROM " + SULayerName + " WHERE ID == " + m_QMark + "SU#" + IDTo + m_QMark + "),"
+              "geometry) AS Distance FROM " + LILayerName + " WHERE ID == " + m_QMark + ID + m_QMark; //16/12/2016/17:00 Simplified the selection here
           SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
           LIFeature->SetField("FlowDist", SQLLayer->GetFeature(0)->GetFieldAsDouble("Distance"));
           LILayer->SetFeature(LIFeature);
@@ -5816,8 +6053,10 @@ void LandProcessor::setLIParameters()
   }
 }
 
+
 // ====================================================================
 // ====================================================================
+
 
 void LandProcessor::extractPlotsLimits()
 {
@@ -5852,7 +6091,7 @@ void LandProcessor::extractPlotsLimits()
   // Extracting parcel limits in order to obtain the well-attributes LSs
   // ====================================================================
 
-  Plots = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsVectorFile).c_str(), TRUE );
+  Plots = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsVectorFile).c_str(), TRUE );
   PlotsLayer = Plots->GetLayer(0);
   PlotsLayer->ResetReading();
   mp_SRS = Plots->GetLayer(0)->GetSpatialRef();
@@ -5862,8 +6101,8 @@ void LandProcessor::extractPlotsLimits()
     mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputPlotsLimitsVectorFile).c_str());
   }
 
-  PlotsLimits = mp_VectorDriver->CreateDataSource( getOutputVectorPath(m_OutputPlotsLimitsVectorFile).c_str(), nullptr);
-  PlotsLimitsLayer = PlotsLimits->CreateLayer( "plotslimits", mp_SRS, wkbLineString, nullptr );
+  PlotsLimits = mp_VectorDriver->CreateDataSource(getOutputVectorPath(m_OutputPlotsLimitsVectorFile).c_str(), nullptr);
+  PlotsLimitsLayer = PlotsLimits->CreateLayer("plotslimits", mp_SRS, wkbLineString, nullptr );
 
   FieldNamesTable.clear();
   FieldNamesTable = {"ID", "IDPlotA","IDPlotB"};
@@ -5877,13 +6116,15 @@ void LandProcessor::extractPlotsLimits()
   PlotsLimitsFeature = OGRFeature::CreateFeature(PlotsLimitsLayer->GetLayerDefn());
   IDPlotTable.clear();
 
+  std::string WorkPlotsLayerName = m_OutputPlotsVectorFile.substr(0, m_OutputPlotsVectorFile.find("."));
+
   while ((PlotsFeature = PlotsLayer->GetNextFeature()) != nullptr)
   {
     FID = PlotsFeature->GetFID();
     IDPlotA = PlotsFeature->GetFieldAsInteger(m_IDFieldName.c_str());
     m_SQLRequest = "SELECT ST_CollectionExtract(ST_Intersection(geometry, "
-        "(SELECT geometry FROM " + m_OutputPlotsVectorFile.substr(0, m_OutputPlotsVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FID) + ")), 2), " + m_IDFieldName + " FROM " + m_OutputPlotsVectorFile.substr(0, m_OutputPlotsVectorFile.find(".")) + " WHERE "
-        "ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + m_OutputPlotsVectorFile.substr(0, m_OutputPlotsVectorFile.find(".")) + " WHERE ROWID == " + std::to_string(FID) + "))) > 0";
+        "(SELECT geometry FROM " + WorkPlotsLayerName + " WHERE ROWID == " + std::to_string(FID) + ")), 2), " + m_IDFieldName + " FROM " + WorkPlotsLayerName + " WHERE "
+        "ST_Length(ST_Intersection(geometry, (SELECT geometry FROM " + WorkPlotsLayerName + " WHERE ROWID == " + std::to_string(FID) + "))) > 0";
     SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
     if (SQLLayer->GetFeatureCount() != 0)
     {
@@ -5916,9 +6157,26 @@ void LandProcessor::extractPlotsLimits()
 
 }
 
+
 // ====================================================================
 // ====================================================================
 
+
+/**
+  @internal
+  <hr>
+  Files
+    - m_InputDitchesVectorFile
+    - m_InputHedgesVectorFile
+    - m_InputGrassBandVectorFile
+    - m_InputRiversVectorFile
+    - m_InputThalwegsVectorFile
+    - m_InputBenchesVectorFile
+    - m_OutputPlotsVectorFile
+    - m_OutputLinearStructureVectorFile
+    - m_OutputIntersectionVectorFile
+    - m_OutputPlotsLimitsVectorFile
+*/
 void LandProcessor::attributeLinearStructures()
 {
 
@@ -5932,7 +6190,7 @@ void LandProcessor::attributeLinearStructures()
   double Distance;
   std::string Options, FileName;
 
-  std::vector <std::string> FieldNamesTable, FileNamesTable = {m_InputDitchesFile, m_InputHedgesFile, m_InputGrassBandFile, m_InputRivesrFile, m_InputBenchesFile};
+  std::vector <std::string> FieldNamesTable, FileNamesTable = {m_InputDitchesVectorFile, m_InputHedgesVectorFile, m_InputGrassBandVectorFile, m_InputRiversVectorFile, m_InputBenchesVectorFile};
 
   OGRDataSource *DataSource, *LS, *Plots, *PlotsLimits, *Intersection;
   OGRLayer *SQLLayer, *LSLayer, *PlotsLayer, *PlotsLimitsLayer, *IntersectionLayer;
@@ -5953,6 +6211,8 @@ void LandProcessor::attributeLinearStructures()
   // ==================================================================
   // Attribution of the original linear structures to the parcel limits
   // ==================================================================
+
+  const std::string WorkPlotsLimitsLayerName = getLayerNameFromFilename(m_OutputPlotsLimitsVectorFile);
 
   if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputPlotsLimitsVectorFile)))
   {
@@ -6076,25 +6336,25 @@ void LandProcessor::attributeLinearStructures()
                   FieldNamesTable.clear();
                   LSLayer->SyncToDisk();
 
-                  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath("linearstructure.shp")))
+                  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputLinearStructureVectorFile)))
                   {
-                    mp_VectorDriver->DeleteDataSource(getOutputVectorPath("linearstructure.shp").c_str());
+                    mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputLinearStructureVectorFile).c_str());
                   }
 
-                  DataSource = mp_VectorDriver->CopyDataSource(LS, getOutputVectorPath("linearstructure.shp").c_str(), nullptr);
+                  DataSource = mp_VectorDriver->CopyDataSource(LS, getOutputVectorPath(m_OutputLinearStructureVectorFile).c_str(), nullptr);
                   OGRDataSource::DestroyDataSource(LS);
                   OGRDataSource::DestroyDataSource(DataSource);
-                  LS = OGRSFDriverRegistrar::Open( getOutputVectorPath("linearstructure.shp").c_str(), TRUE );
+                  LS = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputLinearStructureVectorFile).c_str(), TRUE );
                   mp_SRS = LS->GetLayer(0)->GetSpatialRef();
                   LSLayer = LS->GetLayer(0);
                   FeatureDefn = LSLayer->GetLayerDefn();
 
-                  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath("intersection.shp")))
+                  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputIntersectionVectorFile)))
                   {
-                    mp_VectorDriver->DeleteDataSource(getOutputVectorPath("intersection.shp").c_str());
+                    mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputIntersectionVectorFile).c_str());
                   }
 
-                  Intersection = mp_VectorDriver->CreateDataSource(getOutputVectorPath("intersection.shp").c_str());
+                  Intersection = mp_VectorDriver->CreateDataSource(getOutputVectorPath(m_OutputIntersectionVectorFile).c_str());
                   IntersectionLayer = Intersection->CreateLayer("intersection", mp_SRS, wkbLineString);
                   FieldNamesTable.clear();
                   FieldNamesTable = {m_IDFieldName, "IDLS", "IDPlot", "IDLimit", "PointDist"};
@@ -6114,7 +6374,7 @@ void LandProcessor::attributeLinearStructures()
                   FieldNamesTable.clear();
                   IntersectionLayer->SyncToDisk();
                   LSLayer = LS->GetLayer(0);
-                  Plots = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsVectorFile).c_str(), TRUE );
+                  Plots = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsVectorFile).c_str(), TRUE );
                   PlotsLayer = Plots->GetLayer(0);
 
                   for (int i = 0; i < LSLayer->GetFeatureCount(); i++)
@@ -6187,19 +6447,19 @@ void LandProcessor::attributeLinearStructures()
                   }
 
                   OGRDataSource::DestroyDataSource(Intersection);
-                  Intersection = OGRSFDriverRegistrar::Open( getOutputVectorPath("intersection.shp").c_str(), TRUE );
+                  Intersection = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputIntersectionVectorFile).c_str(), TRUE );
                   IntersectionLayer = Intersection->GetLayer(0);
                   IntersectionLayer->ResetReading();
-                  PlotsLimits = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsLimitsVectorFile).c_str(), TRUE );
+                  PlotsLimits = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputPlotsLimitsVectorFile).c_str(), TRUE );
                   PlotsLimitsLayer = PlotsLimits->GetLayer(0);
-                  DataSource =  OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
+                  DataSource =  OGRSFDriverRegistrar::Open(getOutputVectorPath().c_str(), TRUE );
 
                   while ((IntersectionFeature = IntersectionLayer->GetNextFeature()) != nullptr)
                   {
                     FID = IntersectionFeature->GetFID();
                     IDPlot = IntersectionFeature->GetFieldAsInteger("IDPlot");
                     m_SQLRequest = "SELECT *, geometry, ROWID AS RID" // changes here LineInter and EndPointDist, StartPointDist removed
-                        " FROM " + m_OutputPlotsLimitsVectorFile.substr(0, m_OutputPlotsLimitsVectorFile.find(".")) + " WHERE IDPlotA == " + std::to_string(IDPlot) + " OR IDPlotB == " + std::to_string(IDPlot) + " ORDER BY "
+                        " FROM " + WorkPlotsLimitsLayerName + " WHERE IDPlotA == " + std::to_string(IDPlot) + " OR IDPlotB == " + std::to_string(IDPlot) + " ORDER BY "
                         "ST_Distance(geometry,(SELECT ST_Line_Interpolate_Point(ST_LineMerge(geometry), 0.5) FROM intersection WHERE ROWID == " + std::to_string(FID) + " )) ASC, "
                         "ST_Distance(geometry,(SELECT ST_EndPoint(geometry) FROM intersection WHERE ROWID == " + std::to_string(FID) + " )) ASC, "
                         "ST_Distance(geometry,(SELECT ST_StartPoint(geometry) FROM intersection WHERE ROWID == " + std::to_string(FID) + ")) ASC";
@@ -6227,7 +6487,7 @@ void LandProcessor::attributeLinearStructures()
                   OGRDataSource::DestroyDataSource(Intersection);
                   OGRDataSource::DestroyDataSource(PlotsLimits);
 
-                  Intersection = OGRSFDriverRegistrar::Open( getOutputVectorPath("intersection.shp").c_str(), TRUE );
+                  Intersection = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputIntersectionVectorFile).c_str(), TRUE );
                   DataSource =  OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
                   IntersectionLayer = Intersection->GetLayer(0);
 
@@ -6241,7 +6501,7 @@ void LandProcessor::attributeLinearStructures()
                     {
                       m_SQLRequest = "SELECT ST_CollectionExtract(ST_Intersection(geometry, "
                           "(SELECT ST_Buffer(geometry, PointDist*1.5) FROM intersection WHERE ROWID == " + std::to_string(FID) + ")), 2) "
-                          "FROM " + m_OutputPlotsLimitsVectorFile.substr(0, m_OutputPlotsLimitsVectorFile.find(".")) + " WHERE ID == " + std::to_string(IDLimit);
+                          "FROM " + WorkPlotsLimitsLayerName + " WHERE ID == " + std::to_string(IDLimit);
                       SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
                       IntersectionFeature->SetGeometryDirectly(SQLLayer->GetFeature(0)->GetGeometryRef());
                       IntersectionLayer->SetFeature(IntersectionFeature);
@@ -6273,7 +6533,7 @@ void LandProcessor::attributeLinearStructures()
                     mp_VectorDriver->DeleteDataSource(getOutputVectorPath(FileNamesTable[i]).c_str());
                   }
 
-                  Intersection = OGRSFDriverRegistrar::Open( getOutputVectorPath("intersection.shp").c_str(), TRUE );
+                  Intersection = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputIntersectionVectorFile).c_str(), TRUE );
 
                   if (Intersection->GetLayer(0)->GetFeatureCount() != 0)
                   {
@@ -6289,14 +6549,14 @@ void LandProcessor::attributeLinearStructures()
                   OGRDataSource::DestroyDataSource(Plots);
                   OGRDataSource::DestroyDataSource(DataSource);
 
-                  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath("linearstructure.shp")))
+                  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputLinearStructureVectorFile)))
                   {
-                    mp_VectorDriver->DeleteDataSource(getOutputVectorPath("linearstructure.shp").c_str());
+                    mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputLinearStructureVectorFile).c_str());
                   }
 
-                  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath("intersection.shp")))
+                  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputIntersectionVectorFile)))
                   {
-                    mp_VectorDriver->DeleteDataSource(getOutputVectorPath("intersection.shp").c_str());
+                    mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputIntersectionVectorFile).c_str());
                   }
                 }
               }
@@ -6305,6 +6565,77 @@ void LandProcessor::attributeLinearStructures()
         }
       }
     }
+  }
+}
+
+
+// =====================================================================
+// =====================================================================
+
+
+void LandProcessor::releaseVectorFile(const std::string& Filename)
+{
+  VERBOSE_MESSAGE(2,"Releasing vector file : " << Filename);
+
+  mp_VectorDriver = OGRSFDriverRegistrar::GetRegistrar()->GetDriverByName(m_VectorDriverName.c_str());
+
+
+  // Removing destination file if exists
+
+  OGRDataSource* TestDest = OGRSFDriverRegistrar::Open(getReleaseVectorPath(Filename).c_str(),false);
+
+  if (TestDest)
+  {
+    OGRDataSource::DestroyDataSource(TestDest);
+    mp_VectorDriver->DeleteDataSource(getReleaseVectorPath(Filename).c_str());
+  }
+
+
+  // Perform copy
+
+  OGRDataSource* Source = OGRSFDriverRegistrar::Open(getOutputVectorPath(Filename).c_str(),false);
+
+  if (!Source)
+  {
+    throw std::runtime_error("LandProcessor::releasVectorFile(): " + Filename + ": no such file in the output vector directory");
+  }
+
+  OGRDataSource* Copy = mp_VectorDriver->CopyDataSource(Source,getReleaseVectorPath(Filename).c_str(),nullptr);
+
+  OGRDataSource::DestroyDataSource(Copy);
+
+  OGRDataSource::DestroyDataSource(Source);
+}
+
+
+// =====================================================================
+// =====================================================================
+
+
+void LandProcessor::releaseRasterFile(const std::string& Filename) const
+{
+  VERBOSE_MESSAGE(2,"Releasing raster file : " << Filename);
+
+  throw std::runtime_error("not implemented");
+}
+
+
+// =====================================================================
+// =====================================================================
+
+
+void LandProcessor::releaseFiles()
+{
+  VERBOSE_MESSAGE(1,"Entering " << __PRETTY_FUNCTION__);
+
+  for (auto& ReleaseFile : m_VectorFilesToRelease)
+  {
+    releaseVectorFile(ReleaseFile);
+  }
+
+  for (auto& ReleaseFile : m_RasterFilesToRelease)
+  {
+    releaseRasterFile(ReleaseFile);
   }
 }
 
@@ -6424,7 +6755,7 @@ void LandProcessor::checkLinearVectorData()
   // Variables that are used in this block
   // =====================================================================
 
-  std::vector <std::string> FieldNamesTable, FileNamesTable = {m_InputDitchesFile, m_InputHedgesFile, m_InputGrassBandFile, m_InputRivesrFile, m_InputBenchesFile, m_InputThalwegsFile};
+  std::vector <std::string> FieldNamesTable, FileNamesTable = {m_InputDitchesVectorFile, m_InputHedgesVectorFile, m_InputGrassBandVectorFile, m_InputRiversVectorFile, m_InputBenchesVectorFile, m_InputThalwegsVectorFile};
 
   OGRDataSource *LS;
   OGRLayer *LSLayer;
@@ -6528,7 +6859,7 @@ void LandProcessor::checkPolygonVectorData()
   // Variables that are used in this block
   // =====================================================================
 
-  std::vector <std::string> FieldNamesTable, FileNamesTable = {m_InputPlotsFile};
+  std::vector <std::string> FieldNamesTable, FileNamesTable = {m_InputPlotsVectorFile};
 
   OGRDataSource *Polygon;
   OGRLayer *PolygonLayer;

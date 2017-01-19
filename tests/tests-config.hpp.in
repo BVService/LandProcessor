@@ -5,6 +5,7 @@
 #include <string>
 
 const std::string TESTS_DATASETS_PATH = "@TESTS_DATASETS_PATH@";
-const std::string TESTS_RESULTS_PATH = "@TESTS_RESULTS_PATH@";
+const std::string TESTS_REFERENCES_PATH = "@TESTS_REFERENCES_PATH@";
+const std::string TESTS_EXECS_PATH = "@TESTS_EXECS_PATH@";
 
 #endif  /* __TESTSCONFIG_IN_HPP__ */

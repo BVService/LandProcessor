@@ -1,0 +1,66 @@
+DOXYFILE_ENCODING      = UTF-8
+
+PROJECT_NAME           = LandProcessor 
+PROJECT_NUMBER         = 0.5 
+#PROJECT_LOGO           = 
+
+OUTPUT_DIRECTORY       = @DOC_OUTPUT_DIR@
+
+FULL_PATH_NAMES        = YES
+STRIP_FROM_PATH        = @DOC_SRCTOPARSE_DIR@
+STRIP_FROM_INC_PATH    = @DOC_SRCTOPARSE_DIR@
+
+
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = YES
+EXTRACT_LOCAL_CLASSES  = YES
+EXTRACT_LOCAL_METHODS  = YES
+EXTRACT_ANON_NSPACES   = NO
+HIDE_UNDOC_MEMBERS     = NO
+HIDE_UNDOC_CLASSES     = NO
+INTERNAL_DOCS          = YES
+
+
+INPUT                  = @DOC_SRCTOPARSE_DIR@ @CMAKE_CURRENT_SOURCE_DIR@
+INPUT_ENCODING         = UTF-8
+FILE_PATTERNS          = *.h \
+                         *.hh \
+                         *.hxx \
+                         *.hpp \
+                         *.h++ \
+                         *.dox \
+                         *.cpp
+RECURSIVE              = YES
+EXCLUDE                = .svn
+EXCLUDE_SYMLINKS       = NO
+#IMAGE_PATH             = 
+#EXAMPLE_PATH           =
+
+GENERATE_MAN     	   = NO
+GENERATE_LATEX    	   = NO
+GENERATE_HTML     	   = YES
+GENERATE_HTMLHELP      = NO
+GENERATE_RTF           = NO
+GENERATE_XML           = NO
+SEARCHENGINE           = NO
+PDF_HYPERLINKS         = NO
+USE_PDFLATEX           = NO
+STRIP_CODE_COMMENTS    = NO
+
+HTML_FILE_EXTENSION    = .html
+#HTML_HEADER            = header.html
+#HTML_FOOTER            = footer.html
+#HTML_EXTRA_STYLESHEET  = custom.css
+HTML_OUTPUT            = html
+
+SEARCHENGINE		   = YES
+SERVER_BASED_SEARCH    = NO
+SHORT_NAMES			   = YES
+
+QUIET                  = YES
+WARNINGS               = YES
+WARN_IF_DOC_ERROR      = YES
+
+MAX_INITIALIZER_LINES  = 0
+

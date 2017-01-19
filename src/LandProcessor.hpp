@@ -1,9 +1,28 @@
 /*
- * LandProcessor.hpp
- *
- *  Created on: 8 sept. 2016
- *      Author: ezadonina
- */
+    LandProcessor
+    Copyright (C) 2016- INRA
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+
+/**
+  @file LandProcessor.hpp
+  @author Ekaterina Zadonina <ekaterina.zadonina@inra.fr>
+  @author Jean-Christophe FABRE <jean-christophe.fabre@inra.fr>
+*/
+
 
 #ifndef __LANDPROCESSOR_HPP__
 #define __LANDPROCESSOR_HPP__
@@ -11,6 +30,7 @@
 
 #include <string>
 #include <vector>
+#include <map>
 #include <gdal/ogrsf_frmts.h>
 #include <gdal/gdal_priv.h>
 #include <gdal/cpl_conv.h>
@@ -24,25 +44,59 @@ class LandProcessor
 
     std::string m_OutputPath;
 
+    std::string m_ReleasePath;
+
     const std::string m_VectorDir = "vector";
 
     const std::string m_RasterDir = "raster";
 
-    const std::string m_InputPlotsFile = "plots.shp";
 
-    const std::string m_InputDitchesFile = "fosses.shp";
+    // input files
 
-    const std::string m_InputHedgesFile = "haies.shp";
+    const std::string m_InputPlotsVectorFile = "plots.shp";
 
-    const std::string m_InputGrassBandFile = "bandesenherbees.shp";
+    const std::string m_InputDitchesVectorFile = "fosses.shp";
 
-    const std::string m_InputRivesrFile = "coursdeau.shp";
+    const std::string m_InputHedgesVectorFile = "haies.shp";
 
-    const std::string m_InputThalwegsFile = "talweg.shp";
+    const std::string m_InputGrassBandVectorFile = "bandesenherbees.shp";
 
-    const std::string m_InputBenchesFile = "talus.shp";
+    const std::string m_InputRiversVectorFile = "coursdeau.shp";
+
+    const std::string m_InputThalwegsVectorFile = "talweg.shp";
+
+    const std::string m_InputBenchesVectorFile = "talus.shp";
+
 
     const std::string m_InputDEMFile = "dem.tif";
+
+
+    // Output files
+
+    const std::string m_OutputPlotsVectorFile = "plots.shp";
+
+    const std::string m_OutputPlotsLimitsVectorFile = "plotslimits.shp";
+
+    const std::string m_OutputPlotsRasterVectorFile = "plotsrastervector.shp";
+
+    const std::string m_OutputCatchmentsVectorFile = "catchments.shp";
+
+    const std::string m_OutputOutletsVectorFile = "outlets.shp";
+
+    const std::string m_OutputReceiversVectorFile = "receivers.shp";
+
+    const std::string m_OutputCatchmentsGroupedVectorFile = "catchmentsgrouped.shp";
+
+    const std::string m_OutputEntitiesVectorFile = "entities.shp";
+
+    const std::string m_OutputPlotsAndEntitiesUnionVectorFile = "unionplotsentities.shp";
+
+    const std::string m_OutputEntitiesGroupedVectorFile = "entitiesgrouped.shp";
+
+    const std::string m_OutputLinearStructureVectorFile = "linearstructure.shp";
+
+    const std::string m_OutputIntersectionVectorFile = "intersection.shp";
+
 
     const std::string m_OutputDEMFile = "dem.tif";
 
@@ -62,23 +116,6 @@ class LandProcessor
 
     const std::string m_OutputCatchmentsRasterFile = "catchments.tif";
 
-    const std::string m_OutputPlotsVectorFile = "plots.shp";
-
-    const std::string m_OutputPlotsLimitsVectorFile = "plotslimits.shp";
-
-    const std::string m_OutputCatchmentsVectorFile = "catchments.shp";
-
-    const std::string m_OutputOutletsVectorFile = "outlets.shp";
-
-    const std::string m_OutputReceiversVectorFile = "receivers.shp";
-
-    const std::string m_OutputCatchmentsGroupedVectorFile = "catchmentsgrouped.shp";
-
-    const std::string m_OutputEntitiesVectorFile = "entities.shp";
-
-    const std::string m_OutputPlotsAndEntitiesUnionVectorFile = "unionplotsentities.shp";
-
-    const std::string m_OutputEntitiesGroupedVectorFile = "entitiesgrouped.shp";
 
     const std::string m_OutputSurfaceEntitiesVectorFile = "SRF.shp";
 
@@ -89,6 +126,14 @@ class LandProcessor
     const std::string m_OutputRSVectorFile = "RS.shp";
 
     const std::string m_OutputLIVectorFile = "LI.shp";
+
+
+    // Files to release
+
+    std::vector<std::string> m_VectorFilesToRelease = {};
+
+    std::vector<std::string> m_RasterFilesToRelease = {};
+
 
     const std::string m_VectorDriverName = "ESRI Shapefile";
 
@@ -122,24 +167,39 @@ class LandProcessor
 
     std::string m_QMark = "'";
 
+    std::string getInputVectorPath(const std::string& Filename = "") const;
+
+    std::string getInputRasterPath(const std::string& Filename = "") const;
+
+    std::string getOutputVectorPath(const std::string& Filename = "") const;
+
+    std::string getOutputRasterPath(const std::string& Filename = "") const;
+
+    std::string getReleaseVectorPath(const std::string& Filename = "") const;
+
+    std::string getReleaseRasterPath(const std::string& Filename = "") const;
+
+    static std::string getLayerNameFromFilename(const std::string& Filename);
+
+    void releaseVectorFile(const std::string& Filename);
+
+    void releaseRasterFile(const std::string& Filename) const;
+
 
   public:
 
-    LandProcessor(const std::string& InputPath, const std::string& OutputPath);
+    LandProcessor(const std::string& InputPath,
+                  const std::string& OutputPath,
+                  const std::string& ReleasePath);
 
     virtual ~LandProcessor();
 
     bool isReady() const
     { return m_IsReady; }
 
-    std::string getOutputVectorPath(const std::string& Filename = "") const;
-
-    std::string getInputVectorPath(const std::string& Filename = "") const;
-
-    std::string getOutputRasterPath(const std::string& Filename = "") const;
-
-    std::string getInputRasterPath(const std::string& Filename = "") const;
-
+    /**
+      Preprocessing of vector data
+    */
     void preprocessVectorData();
 
     void preprocessRasterData();
@@ -165,6 +225,8 @@ class LandProcessor
     void extractPlotsLimits();
 
     void attributeLinearStructures();
+
+    void releaseFiles();
 
     int extractFromRasterToPoint(GDALDataset *Dataset, unsigned int RasterBandIndex);
 

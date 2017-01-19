@@ -1,0 +1,23 @@
+FIND_PACKAGE(Doxygen)
+
+
+IF(DOXYGEN)
+
+  SET(DOC_OUTPUT_DIR ${CMAKE_BINARY_DIR}/doc-output)
+  SET(DOC_SRCTOPARSE_DIR ${CMAKE_SOURCE_DIR}/src)
+
+  CONFIGURE_FILE(HTML-Doxyfile.in HTML-Doxyfile)
+
+  FILE(MAKE_DIRECTORY "${DOC_OUTPUT_DIR}")
+
+      
+  ADD_CUSTOM_COMMAND(
+    OUTPUT "${DOC_OUTPUT_DIR}/html/index.html"
+    DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/HTML-Doxyfile"
+    COMMAND "${DOXYGEN}"
+       ARGS "${CMAKE_CURRENT_BINARY_DIR}/HTML-Doxyfile")
+
+  ADD_CUSTOM_TARGET(doc-html ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/HTML-Doxyfile"
+                                         "${DOC_OUTPUT_DIR}/html/index.html" VERBATIM)
+
+ENDIF()
