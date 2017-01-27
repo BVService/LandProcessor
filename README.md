@@ -12,7 +12,6 @@ The following tools and frameworks are also required:
 - GCC 4.9 or higher
 - CMake 2.8.12 or higher
 - OpenFLUID 2.1.3 or higher
-- Boost 1.54 or higher
 - GDAL 1.11
 - Qt 4.8.x
 
