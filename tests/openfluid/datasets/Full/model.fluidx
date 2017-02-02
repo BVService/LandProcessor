@@ -1,12 +1,9 @@
 <?xml version="1.0" standalone="yes"?>
 <openfluid>
  <model>
-  <simulator ID="tests.preprocess-stage" enabled="1">
+  <simulator ID="landprocessor.preparation-stage" enabled="1">
   </simulator>
-  <simulator ID="tests.scenario-stage" enabled="1">
+  <simulator ID="landprocessor.scenario-stage" enabled="1">
   </simulator>
  </model>
-
-
 </openfluid>
-

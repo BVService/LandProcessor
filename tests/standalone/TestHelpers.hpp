@@ -43,18 +43,18 @@ bool CompareShapefiles(const std::string& ReferenceFileName, const std::string& 
 
   // -t_srs \"EPSG:4326\"
   std::string RefConversionCmd = "ogr2ogr -f \"CSV\" "+ConvertedRefFile+" "+ReferenceFileName+" -lco \"GEOMETRY=AS_WKT\" -lco \"LINEFORMAT=CRLF\" -lco \"SEPARATOR=SEMICOLON\"";
-  std::system(RefConversionCmd.c_str());
+  if (std::system(RefConversionCmd.c_str()) != 0)
+    return false;
 
   std::string CandConversionCmd = "ogr2ogr -f \"CSV\" "+ConvertedCandFile+" "+CandidateFileName+" -lco \"GEOMETRY=AS_WKT\" -lco \"LINEFORMAT=CRLF\" -lco \"SEPARATOR=SEMICOLON\"";
-  std::system(CandConversionCmd.c_str());
+  if (std::system(CandConversionCmd.c_str()) != 0)
+    return false;
 
 
   std::string DiffCmd = "diff "+ConvertedRefFile+" "+ConvertedCandFile;
 
   return (std::system(DiffCmd.c_str()) == 0);
 }
-
-
 
 
 #endif /* __SHAPEFILESTOOLS_HPP__ */

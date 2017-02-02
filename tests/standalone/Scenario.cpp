@@ -29,7 +29,7 @@
 #include <openfluid/base/Environment.hpp>
 #include <openfluid/tools/FileHelpers.hpp>
 
-#include "LandProcessor.hpp"
+#include <LandProcessor/LandProcessor.hpp>
 
 #include "TestHelpers.hpp"
 #include "tests-config.hpp"
@@ -89,4 +89,3 @@ int main(int argc, char *argv[])
   }
 
 }
-

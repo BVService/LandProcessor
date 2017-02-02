@@ -42,8 +42,8 @@
 #include <openfluid/utils/GrassGISProxy.hpp>
 #include <openfluid/base/Environment.hpp>
 
-#include "LandProcessor.hpp"
-#include "Helpers.hpp"
+#include <LandProcessor/LandProcessor.hpp>
+#include <LandProcessor/Helpers.hpp>
 
 
 LandProcessor::LandProcessor(const std::string& InputPath,
@@ -6950,4 +6950,3 @@ void LandProcessor::checkPolygonVectorData()
     }
   }
 }
-

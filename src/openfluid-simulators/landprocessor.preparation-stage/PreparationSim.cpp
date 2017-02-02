@@ -1,14 +1,14 @@
 
 #include <openfluid/ware/PluggableSimulator.hpp>
 
-#include "LandProcessor.hpp"
+#include <LandProcessor/LandProcessor.hpp>
 
 
 // =====================================================================
 // =====================================================================
 
 
-BEGIN_SIMULATOR_SIGNATURE("tests.scenario-stage")
+BEGIN_SIMULATOR_SIGNATURE("landprocessor.preparation-stage")
 
   // Informations
   DECLARE_NAME("")
@@ -27,34 +27,34 @@ END_SIMULATOR_SIGNATURE
 /**
 
 */
-class ScenarioSimulator : public openfluid::ware::PluggableSimulator
+class PreparationSimulator : public openfluid::ware::PluggableSimulator
 {
 
   public:
 
-  
-    ScenarioSimulator(): PluggableSimulator()
+
+    PreparationSimulator(): PluggableSimulator()
     {
-  
-  
+
+
     }
-  
-  
-    // =====================================================================
-    // =====================================================================
-  
-  
-    ~ScenarioSimulator()
-    {
-  
-  
-    }
-  
+
 
     // =====================================================================
     // =====================================================================
 
-  
+
+    ~PreparationSimulator()
+    {
+
+
+    }
+
+
+    // =====================================================================
+    // =====================================================================
+
+
     void initParams(const openfluid::ware::WareParams_t& Params)
     {
 
@@ -63,8 +63,8 @@ class ScenarioSimulator : public openfluid::ware::PluggableSimulator
 
     // =====================================================================
     // =====================================================================
-  
-  
+
+
     void prepareData()
     {
       std::string InputDir, OutputDir;
@@ -83,50 +83,47 @@ class ScenarioSimulator : public openfluid::ware::PluggableSimulator
 
       try
       {
-        LP.extractPlotsLimits();
-        LP.attributeLinearStructures();
-        LP.createSU();
-        LP.createRS();
-        LP.createLI();
-        LP.setSUParameters();
-        LP.setRSParameters();
-        LP.setLIParameters();
+        LP.preprocessVectorData();
+        LP.preprocessRasterData();
+        LP.createSRFandLNR();
+        LP.setSRFParameters();
+        LP.setLNRParameters();
         LP.releaseFiles();
       }
       catch (std::exception &E)
       {
         OPENFLUID_RaiseError(E.what());
       }
-  
+
     }
-  
-  
+
+
     // =====================================================================
     // =====================================================================
-  
-  
+
+
     void checkConsistency()
     {
-  
-  
+
+
     }
-  
-  
+
+
     // =====================================================================
     // =====================================================================
-  
-  
+
+
     openfluid::base::SchedulingRequest initializeRun()
-    {  
-      
+    {
+
       return Never();
     }
 
 
     // =====================================================================
     // =====================================================================
-  
-  
+
+
     openfluid::base::SchedulingRequest runStep()
     {
 
@@ -136,12 +133,12 @@ class ScenarioSimulator : public openfluid::ware::PluggableSimulator
 
     // =====================================================================
     // =====================================================================
-  
-  
+
+
     void finalizeRun()
     {
-  
-  
+
+
     }
 
 };
@@ -151,9 +148,7 @@ class ScenarioSimulator : public openfluid::ware::PluggableSimulator
 // =====================================================================
 
 
-DEFINE_SIMULATOR_CLASS(ScenarioSimulator);
+DEFINE_SIMULATOR_CLASS(PreparationSimulator);
 
 
 DEFINE_WARE_LINKUID(WARE_LINKUID)
-
-
