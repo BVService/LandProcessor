@@ -11,10 +11,10 @@
 BEGIN_SIMULATOR_SIGNATURE("landprocessor.scenario-stage")
 
   // Informations
-  DECLARE_NAME("")
+  DECLARE_NAME("Scenario stage of the LandProcessor process")
   DECLARE_DESCRIPTION("")
   DECLARE_VERSION("")
-  DECLARE_STATUS(openfluid::ware::EXPERIMENTAL)
+  DECLARE_STATUS(openfluid::ware::BETA)
 
 
 END_SIMULATOR_SIGNATURE
@@ -29,6 +29,12 @@ END_SIMULATOR_SIGNATURE
 */
 class ScenarioSimulator : public openfluid::ware::PluggableSimulator
 {
+  private:
+
+    std::string GISdataInputDir = "gisdata-input";
+    std::string GISdataOutputDir = "gisdata-output";
+    std::string GISdataReleaseDir = "gisdata-release";
+
 
   public:
 
@@ -72,9 +78,10 @@ class ScenarioSimulator : public openfluid::ware::PluggableSimulator
       OPENFLUID_GetRunEnvironment("dir.input",InputDir);
       OPENFLUID_GetRunEnvironment("dir.output",OutputDir);
 
-      LandProcessor LP(InputDir+"/gisdata-input",
-                       OutputDir+"/gisdata-output",
-                       OutputDir+"/gisdata-release");
+      LandProcessor LP(InputDir+"/"+GISdataInputDir,
+                       OutputDir+"/"+GISdataOutputDir,
+                       OutputDir+"/"+GISdataReleaseDir);
+
 
       if (!LP.isReady())
       {
@@ -93,11 +100,10 @@ class ScenarioSimulator : public openfluid::ware::PluggableSimulator
         LP.setLIParameters();
         LP.releaseFiles();
       }
-      catch (std::exception &E)
+      catch (std::exception& E)
       {
         OPENFLUID_RaiseError(E.what());
       }
-
     }
 
 
@@ -135,7 +141,11 @@ class ScenarioSimulator : public openfluid::ware::PluggableSimulator
 
 
     // =====================================================================
-    // =====================================================================
+    // ===================    /**
+     * [initParams description]
+     * @param Params [description]
+     */
+==================================================
 
 
     void finalizeRun()

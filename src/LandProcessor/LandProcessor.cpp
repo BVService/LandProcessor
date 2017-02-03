@@ -67,8 +67,8 @@ LandProcessor::LandProcessor(const std::string& InputPath,
 
   openfluid::tools::Filesystem::makeDirectory(openfluid::base::Environment::getTempDir());
 
-  openfluid::tools::Filesystem::makeDirectory("/tmp/bvservice-grass");
-  openfluid::utils::GrassGISProxy GRASS("/tmp/bvservice-grass","temp");
+  openfluid::tools::Filesystem::makeDirectory("/tmp/landprocessor-grass");
+  openfluid::utils::GrassGISProxy GRASS("/tmp/landprocessor-grass","temp");
 
   GRASS.createLocation(m_EPSGCode.c_str());
 
