@@ -141,11 +141,7 @@ class ScenarioSimulator : public openfluid::ware::PluggableSimulator
 
 
     // =====================================================================
-    // ===================    /**
-     * [initParams description]
-     * @param Params [description]
-     */
-==================================================
+    // =====================================================================
 
 
     void finalizeRun()
