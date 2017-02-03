@@ -43,18 +43,12 @@ int main(int argc, char *argv[])
   openfluid::tools::emptyDirectoryRecursively(TESTS_EXECS_PATH+"/DardaillonSmall_2stages/output");
   openfluid::tools::emptyDirectoryRecursively(TESTS_EXECS_PATH+"/DardaillonSmall_2stages/release");
 
-  LandProcessor LP(TESTS_DATASETS_PATH+"/DardaillonSmall",
-                   TESTS_EXECS_PATH+"/DardaillonSmall_2stages/output",
-                   TESTS_EXECS_PATH+"/DardaillonSmall_2stages/release");
-
-  if (!LP.isReady())
-  {
-    std::cout << "LandProcessor is not ready" << std::endl;
-    return -1;
-  }
-
   try
   {
+    LandProcessor LP(TESTS_DATASETS_PATH+"/DardaillonSmall",
+                     TESTS_EXECS_PATH+"/DardaillonSmall_2stages/output",
+                     TESTS_EXECS_PATH+"/DardaillonSmall_2stages/release");
+
     LP.preprocessVectorData();
     LP.preprocessRasterData();
     LP.createSRFandLNR();
@@ -72,12 +66,14 @@ int main(int argc, char *argv[])
 
 
   std::vector<std::string> ShapefilesToCompare = {"SRF","LNR"};
-
+  std::string WorkTmpPath = openfluid::tools::Filesystem::makeUniqueSubdirectory(openfluid::base::Environment::getTempDir(),
+                                                                                 "preparation-shpcompare");
   for (auto& ShpFile : ShapefilesToCompare)
   {
 
     if (CompareShapefiles(TESTS_REFERENCES_PATH+"/DardaillonSmall/"+ShpFile+".shp",
-                          TESTS_EXECS_PATH+"/DardaillonSmall_2stages/release/vector/"+ShpFile+".shp"))
+                          TESTS_EXECS_PATH+"/DardaillonSmall_2stages/release/vector/"+ShpFile+".shp",
+                          WorkTmpPath))
     {
       std::cout << "OK: "+ShpFile + " shapefile is similar to reference file" << std::endl;
     }

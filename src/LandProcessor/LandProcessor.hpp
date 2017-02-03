@@ -40,6 +40,10 @@ class LandProcessor
 {
   private:
 
+    std::string m_TmpPath;
+
+    std::string m_GrassTmpPath;
+
     std::string m_InputPath;
 
     std::string m_OutputPath;
@@ -139,6 +143,8 @@ class LandProcessor
 
     const std::string m_RasterDriverName = "GTiff";
 
+    const std::string m_GrassLocation = "temp";
+
     OGRSFDriver *mp_VectorDriver = nullptr;
 
     OGRSpatialReference *mp_SRS = nullptr;
@@ -148,8 +154,6 @@ class LandProcessor
     GDALDriver *mp_RasterDriver = nullptr;
 
     double m_GeoTransformVal[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-
-    bool m_IsReady = true;
 
     unsigned int m_MinEntSize = 250; // minimal entity size (normally in square meters)
 
@@ -193,9 +197,6 @@ class LandProcessor
                   const std::string& ReleasePath);
 
     virtual ~LandProcessor();
-
-    bool isReady() const
-    { return m_IsReady; }
 
     /**
       Preprocessing of vector data

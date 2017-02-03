@@ -79,17 +79,13 @@ class PreparationSimulator : public openfluid::ware::PluggableSimulator
       OPENFLUID_GetRunEnvironment("dir.input",InputDir);
       OPENFLUID_GetRunEnvironment("dir.output",OutputDir);
 
-      LandProcessor LP(InputDir+"/"+GISdataInputDir,
-                       OutputDir+"/"+GISdataOutputDir,
-                       OutputDir+"/"+GISdataReleaseDir);
-
-      if (!LP.isReady())
-      {
-        OPENFLUID_RaiseError("LandProcessor is not ready");
-      }
 
       try
       {
+        LandProcessor LP(InputDir+"/"+GISdataInputDir,
+                         OutputDir+"/"+GISdataOutputDir,
+                         OutputDir+"/"+GISdataReleaseDir);
+
         LP.preprocessVectorData();
         LP.preprocessRasterData();
         LP.createSRFandLNR();

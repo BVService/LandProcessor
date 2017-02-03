@@ -32,10 +32,11 @@
 #include <openfluid/tools/Filesystem.hpp>
 
 
-bool CompareShapefiles(const std::string& ReferenceFileName, const std::string& CandidateFileName)
+bool CompareShapefiles(const std::string& ReferenceFileName, const std::string& CandidateFileName,
+                       const std::string& TmpWorkPath)
 {
-  std::string ConvertedRefFile = "/tmp/ref-" + openfluid::tools::Filesystem::basename(ReferenceFileName)+".csv";
-  std::string ConvertedCandFile = "/tmp/cand-" + openfluid::tools::Filesystem::basename(CandidateFileName)+".csv";
+  std::string ConvertedRefFile = TmpWorkPath + "/ref-" + openfluid::tools::Filesystem::basename(ReferenceFileName)+".csv";
+  std::string ConvertedCandFile = TmpWorkPath + "/cand-" + openfluid::tools::Filesystem::basename(CandidateFileName)+".csv";
 
   openfluid::tools::Filesystem::removeFile(ConvertedRefFile);
   openfluid::tools::Filesystem::removeFile(ConvertedCandFile);

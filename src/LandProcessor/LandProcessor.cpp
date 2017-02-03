@@ -62,13 +62,22 @@ LandProcessor::LandProcessor(const std::string& InputPath,
   openfluid::tools::Filesystem::makeDirectory(getReleaseVectorPath());
   openfluid::tools::Filesystem::makeDirectory(getReleaseRasterPath());
 
-  m_IsReady = m_IsReady && openfluid::tools::Filesystem::isDirectory(getInputVectorPath());
-  m_IsReady = m_IsReady && openfluid::tools::Filesystem::isDirectory(getInputRasterPath());
+  if (!openfluid::tools::Filesystem::isDirectory(getInputVectorPath()))
+    throw std::runtime_error("LandProcessor::LandProcessor(): input vector directory does not exists (" +
+                             getInputVectorPath()+")");
+  if (!openfluid::tools::Filesystem::isDirectory(getInputRasterPath()))
+    throw std::runtime_error("LandProcessor::LandProcessor(): input raster directory does not exists (" +
+                             getInputRasterPath()+")");
 
   openfluid::tools::Filesystem::makeDirectory(openfluid::base::Environment::getTempDir());
 
-  openfluid::tools::Filesystem::makeDirectory("/tmp/landprocessor-grass");
-  openfluid::utils::GrassGISProxy GRASS("/tmp/landprocessor-grass","temp");
+  m_TmpPath = openfluid::tools::Filesystem::makeUniqueSubdirectory(openfluid::base::Environment::getTempDir(),
+                                                                   "landprocessor");
+  m_GrassTmpPath = m_TmpPath + "/grass";
+
+  openfluid::tools::Filesystem::makeDirectory(m_GrassTmpPath);
+  openfluid::utils::GrassGISProxy GRASS(QString::fromStdString(m_GrassTmpPath),
+                                        QString::fromStdString(m_GrassLocation));
 
   GRASS.createLocation(m_EPSGCode.c_str());
 
@@ -455,9 +464,10 @@ void LandProcessor::preprocessVectorData()
   ClipedTable.clear();
   OGRDataSource::DestroyDataSource(Plots);
 
-  openfluid::utils::GrassGISProxy GRASS("/tmp/bvservice-grass","temp");
-  GRASS.setOutputFile("/tmp/bvservice-grass/procesvectordata.out");
-  GRASS.setErrorFile("/tmp/bvservice-grass/processvectordata.err");
+  openfluid::utils::GrassGISProxy GRASS(QString::fromStdString(m_GrassTmpPath),
+                                        QString::fromStdString(m_GrassLocation));
+  GRASS.setOutputFile(QString::fromStdString(m_TmpPath)+"/procesvectordata.out");
+  GRASS.setErrorFile(QString::fromStdString(m_TmpPath)+"/processvectordata.err");
 
   GRASS.appendTask("v.in.ogr", {{"input", QString::fromStdString(getInputVectorPath(m_InputPlotsVectorFile))},
                                 {"output", "plotssnapped"}, {"snap", QString::fromStdString(m_SnapDistance)}},
@@ -611,10 +621,11 @@ void LandProcessor::preprocessRasterData()
   // GRASS GIS data processing
   // =====================================================================
 
-  openfluid::utils::GrassGISProxy GRASS("/tmp/bvservice-grass","temp");
+  openfluid::utils::GrassGISProxy GRASS(QString::fromStdString(m_GrassTmpPath),
+                                        QString::fromStdString(m_GrassLocation));
 
-  GRASS.setOutputFile("/tmp/bvservice-grass/procesrasterdata.out");
-  GRASS.setErrorFile("/tmp/bvservice-grass/processrasterdata.err");
+  GRASS.setOutputFile(QString::fromStdString(m_TmpPath)+"/procesrasterdata.out");
+  GRASS.setErrorFile(QString::fromStdString(m_TmpPath)+"/processrasterdata.err");
 
   GRASS.appendTask("v.to.rast", {{"input", QString::fromStdString("plotssnapped")},
                                  {"output", QString::fromStdString("plotsraster")},
@@ -2771,9 +2782,10 @@ void LandProcessor::createSRFandLNR()
   // Union with the original parcel vector layer
   // =====================================================================
 
-  openfluid::utils::GrassGISProxy GRASS("/tmp/bvservice-grass","temp");
-  GRASS.setOutputFile("/tmp/bvservice-grass/procesvectordata.out");
-  GRASS.setErrorFile("/tmp/bvservice-grass/processvectordata.err");
+  openfluid::utils::GrassGISProxy GRASS(QString::fromStdString(m_GrassTmpPath),
+                                        QString::fromStdString(m_GrassLocation));
+  GRASS.setOutputFile(QString::fromStdString(m_TmpPath)+"/procesvectordata.out");
+  GRASS.setErrorFile(QString::fromStdString(m_TmpPath)+"/processvectordata.err");
 
   GRASS.appendTask("v.in.ogr", {{"input", QString::fromStdString(getOutputVectorPath(m_OutputPlotsVectorFile))},
                                 {"output", "plots"},
@@ -5129,10 +5141,9 @@ void LandProcessor::createRS()
 
     RSLayer->SyncToDisk();
     OGRDataSource::DestroyDataSource(RS);
+
+    m_VectorFilesToRelease.push_back(m_OutputRSVectorFile);
   }
-
-  m_VectorFilesToRelease.push_back(m_OutputRSVectorFile);
-
 }
 
 
@@ -5428,10 +5439,9 @@ void LandProcessor::createLI()
 
     LILayer->SyncToDisk();
     OGRDataSource::DestroyDataSource(LI);
+
+    m_VectorFilesToRelease.push_back(m_OutputLIVectorFile);
   }
-
-  m_VectorFilesToRelease.push_back(m_OutputLIVectorFile);
-
 }
 
 
