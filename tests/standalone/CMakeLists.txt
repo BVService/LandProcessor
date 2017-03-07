@@ -5,7 +5,7 @@ SET(TESTS_EXECS_PATH "${CMAKE_BINARY_DIR}/tests-standalone")
 
 
 
-FILE(MAKE_DIRECTORY "${TESTS_RESULTS_PATH}")
+FILE(MAKE_DIRECTORY "${TESTS_EXECS_PATH}")
 
 CONFIGURE_FILE(tests-config.hpp.in tests-config.hpp @ONLY)
 
