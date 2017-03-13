@@ -460,13 +460,14 @@ void LandProcessor::preprocessVectorData()
     }
   }
 
+
   ClipTable.clear();
   ClipedTable.clear();
   OGRDataSource::DestroyDataSource(Plots);
 
   openfluid::utils::GrassGISProxy GRASS(QString::fromStdString(m_GrassTmpPath),
                                         QString::fromStdString(m_GrassLocation));
-  GRASS.setOutputFile(QString::fromStdString(m_TmpPath)+"/procesvectordata.out");
+  GRASS.setOutputFile(QString::fromStdString(m_TmpPath)+"/processvectordata.out");
   GRASS.setErrorFile(QString::fromStdString(m_TmpPath)+"/processvectordata.err");
 
   GRASS.appendTask("v.in.ogr", {{"input", QString::fromStdString(getInputVectorPath(m_InputPlotsVectorFile))},
@@ -490,7 +491,7 @@ void LandProcessor::preprocessVectorData()
 
   if (GRASS.runJob() != 0)
   {
-    exit(-1);
+    throw std::runtime_error("LandProcessor::preprocessVectorData() : unable to run GRASS job (see file " + m_TmpPath + "/processvectordata.err)");
   }
 
   // =====================================================================
@@ -739,7 +740,7 @@ void LandProcessor::preprocessRasterData()
 
   if (GRASS.runJob() != 0)
   {
-    exit(-1);
+    throw std::runtime_error("LandProcessor::preprocessRasterData() : unable to run GRASS job (see file " + m_TmpPath + "/processrasterdata.err)");
   }
 
   OGRDataSource::DestroyDataSource(PlotsV);
@@ -2784,8 +2785,8 @@ void LandProcessor::createSRFandLNR()
 
   openfluid::utils::GrassGISProxy GRASS(QString::fromStdString(m_GrassTmpPath),
                                         QString::fromStdString(m_GrassLocation));
-  GRASS.setOutputFile(QString::fromStdString(m_TmpPath)+"/procesvectordata.out");
-  GRASS.setErrorFile(QString::fromStdString(m_TmpPath)+"/processvectordata.err");
+  GRASS.setOutputFile(QString::fromStdString(m_TmpPath)+"/createsrflnr.out");
+  GRASS.setErrorFile(QString::fromStdString(m_TmpPath)+"/createsrflnr.err");
 
   GRASS.appendTask("v.in.ogr", {{"input", QString::fromStdString(getOutputVectorPath(m_OutputPlotsVectorFile))},
                                 {"output", "plots"},
@@ -2800,7 +2801,7 @@ void LandProcessor::createSRFandLNR()
   GRASS.appendTask("v.overlay", {{"ainput", "plots"},
                                  {"binput", "entities"},
                                  {"operator", "or"},
-                                 {"output", "union"},
+                                 {"output", "unionplotsentities"},
                                  {"snap", QString::fromStdString(m_SnapDistance)}},
                    {"--o"});
 
@@ -2809,16 +2810,16 @@ void LandProcessor::createSRFandLNR()
 
   FieldNamesTable = {m_IDFieldName,"IDPlot","ID","IDPlot2","ID2","IDPlot3","ID3"};
 
-  GRASS.appendTask("v.db.renamecolumn", {{"map", "union"},
+  GRASS.appendTask("v.db.renamecolumn", {{"map", "unionplotsentities"},
                                          {"column", QString::fromStdString("a_" + FieldNamesTable[0] + "," + FieldNamesTable[0])}});
 
   for (int i = 1; i < FieldNamesTable.size(); i++)
   {
-    GRASS.appendTask("v.db.renamecolumn", {{"map", "union"},
+    GRASS.appendTask("v.db.renamecolumn", {{"map", "unionplotsentities"},
                                            {"column", QString::fromStdString("b_" + FieldNamesTable[i] + "," + FieldNamesTable[i])}});
   }
 
-  GRASS.appendTask("v.db.dropcolumn", {{"map", "union"},
+  GRASS.appendTask("v.db.dropcolumn", {{"map", "unionplotsentities"},
                                        {"column", QString::fromStdString("a_cat,b_cat")}});
 
   if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile)))
@@ -2826,14 +2827,14 @@ void LandProcessor::createSRFandLNR()
     mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile).c_str());
   }
 
-  GRASS.appendTask("v.out.ogr", {{"input", "union"},
+  GRASS.appendTask("v.out.ogr", {{"input", "unionplotsentities"},
                                  {"type", "area"},
                                  {"output", QString::fromStdString(getOutputVectorPath(m_OutputPlotsAndEntitiesUnionVectorFile))}},
                    {"-s"});
 
   if (GRASS.runJob() != 0)
   {
-    exit(-1);
+    throw std::runtime_error("LandProcessor::createSRFandLNR() : unable to run GRASS job (see file " + m_TmpPath + "/createsrflnr.err)");
   }
 
   // =======================================================================================================
