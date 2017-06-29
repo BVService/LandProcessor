@@ -54,8 +54,6 @@ int main(int argc, char *argv[])
     LP.createSRFandLNR();
     LP.setSRFParameters();
     LP.setLNRParameters();
-    //LP.checkLinearStructuresVectorData();
-    //LP.checkPolygonVectorData();
     LP.releaseFiles();
   }
   catch (std::exception &E)

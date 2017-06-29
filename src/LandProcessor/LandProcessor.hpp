@@ -71,7 +71,6 @@ class LandProcessor
 
     const std::string m_InputBenchesVectorFile = "talus.shp";
 
-
     const std::string m_InputDEMFile = "dem.tif";
 
 
@@ -147,6 +146,12 @@ class LandProcessor
 
     OGRSFDriver *mp_VectorDriver = nullptr;
 
+    OGRDataSource *mp_DataSource = nullptr;
+
+    OGRLayer *mp_Layer = nullptr;
+
+    OGRFeature *mp_Feature = nullptr;
+
     OGRSpatialReference *mp_SRS = nullptr;
 
     OGRPoint *mp_Point = nullptr;
@@ -155,9 +160,9 @@ class LandProcessor
 
     double m_GeoTransformVal[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
-    unsigned int m_MinEntSize = 250; // minimal entity size (normally in square meters)
+    unsigned int m_MinEntSize = 250;
 
-    std::string m_SnapDistance = "1.0e-08"; // snap distance in meters
+    std::string m_SnapDistance = "1.0e-08";
 
     std::string m_IDFieldName = "OFLD_ID";
 
@@ -189,6 +194,45 @@ class LandProcessor
 
     void releaseRasterFile(const std::string& Filename) const;
 
+    GEOSGeom GDALtoGEOSConvertion(OGRGeometry *OGRGeometry);
+
+    OGRGeometry* GEOStoGDALConvertion(GEOSGeom GEOSGeometry);
+
+    std::vector<int> findOverlapsForGeometry(int FID, OGRLayer *Layer);
+
+    std::vector<int> findDuplicatesForGeometry(int FID, OGRLayer *Layer);
+
+    void repackLayer(OGRDataSource* DataSource);
+
+    void createUniqueID(OGRDataSource *DataSource, int LayerIndex = 0);
+
+    bool checkVectorData(const std::string& FilePath, std::vector <int> GeometryTypes, int LayerIndex = 0);
+
+    void checkVectorDataDetails(const std::string& FilePath, std::vector <int> GeometryTypes, int LayerIndex = 0);
+
+    bool checkVectorDriver();
+
+    bool checkSRS(int LayerIndex = 0);
+
+    bool checkGeometries(std::vector <int> GeometryTypes, int LayerIndex = 0);
+
+    void copyVectorFile(const std::string& FromPath, const std::string& ToPath, const std::string& OriginalFileName, const std::string& NewFileName = "");
+
+    void attributeLinearStructures(const std::string& FileName);
+
+    int extractFromRasterToPoint(GDALDataset *Dataset, unsigned int RasterBandIndex);
+
+    void createField(OGRLayer *LayerName, const std::string& FieldName, OGRFieldType FieldType);
+
+    void getCentroidPoint(OGRGeometry *Geometry);
+
+    std::pair <double, double> getCoordinatesOfPoint();
+
+    std::pair <double, double> calculateOffset(double XCoord, double YCoord);
+
+    GDALRasterBand* getRasterBand(GDALDataset *Dataset, unsigned int RastreBandIndex);
+
+    void getGeoTransform(GDALDataset *Dataset);
 
   public:
 
@@ -223,29 +267,7 @@ class LandProcessor
 
     void setLIParameters();
 
-    void extractPlotsLimits();
-
-    void attributeLinearStructures();
-
     void releaseFiles();
-
-    int extractFromRasterToPoint(GDALDataset *Dataset, unsigned int RasterBandIndex);
-
-    void createField(OGRLayer *LayerName, std::string FieldName, OGRFieldType FieldType);
-
-    void getCentroidPoint(OGRGeometry *Geometry);
-
-    std::pair <double, double> getCoordinatesOfPoint();
-
-    std::pair <double, double> calculateOffset(double XCoord, double YCoord);
-
-    GDALRasterBand* getRasterBand(GDALDataset *Dataset, unsigned int RastreBandIndex);
-
-    void getGeoTransform(GDALDataset *Dataset);
-
-    void checkLinearVectorData();
-
-    void checkPolygonVectorData();
 
 };
 

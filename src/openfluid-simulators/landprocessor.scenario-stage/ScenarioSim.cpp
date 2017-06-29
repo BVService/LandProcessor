@@ -84,8 +84,6 @@ class ScenarioSimulator : public openfluid::ware::PluggableSimulator
                          OutputDir+"/"+GISdataOutputDir,
                          OutputDir+"/"+GISdataReleaseDir);
 
-        LP.extractPlotsLimits();
-        LP.attributeLinearStructures();
         LP.createSU();
         LP.createRS();
         LP.createLI();

@@ -47,8 +47,6 @@ int main(int argc, char *argv[])
                      TESTS_EXECS_PATH+"/DardaillonSmall_2stages/output",
                      TESTS_EXECS_PATH+"/DardaillonSmall_2stages/release");
 
-    LP.extractPlotsLimits();
-    LP.attributeLinearStructures();
     LP.createSU();
     LP.createRS();
     LP.createLI();
@@ -62,7 +60,6 @@ int main(int argc, char *argv[])
     std::cout << E.what() << '\n';
     return -1;
   }
-
 
   std::vector<std::string> ShapefilesToCompare = {"SU","RS","LI"};
   std::string WorkTmpPath = openfluid::tools::Filesystem::makeUniqueSubdirectory(openfluid::base::Environment::getTempDir(),
