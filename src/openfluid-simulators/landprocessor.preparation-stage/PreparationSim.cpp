@@ -16,6 +16,7 @@ BEGIN_SIMULATOR_SIGNATURE("landprocessor.preparation-stage")
   DECLARE_VERSION("")
   DECLARE_STATUS(openfluid::ware::BETA)
 
+  DECLARE_USED_PARAMETER("LandUseFieldName","","-");
 
 END_SIMULATOR_SIGNATURE
 
@@ -32,6 +33,7 @@ class PreparationSimulator : public openfluid::ware::PluggableSimulator
 
   private:
 
+	std::string m_LandUseFieldName;
     std::string GISdataInputDir = "gisdata-input";
     std::string GISdataOutputDir = "gisdata-output";
     std::string GISdataReleaseDir = "gisdata-release";
@@ -40,7 +42,7 @@ class PreparationSimulator : public openfluid::ware::PluggableSimulator
   public:
 
 
-    PreparationSimulator(): PluggableSimulator()
+    PreparationSimulator(): PluggableSimulator(), m_LandUseFieldName("LandUse")
     {
 
 
@@ -64,7 +66,7 @@ class PreparationSimulator : public openfluid::ware::PluggableSimulator
 
     void initParams(const openfluid::ware::WareParams_t& Params)
     {
-
+    	 OPENFLUID_GetSimulatorParameter(Params, "LandUseFieldName", m_LandUseFieldName);
     }
 
 
@@ -86,6 +88,7 @@ class PreparationSimulator : public openfluid::ware::PluggableSimulator
                          OutputDir+"/"+GISdataOutputDir,
                          OutputDir+"/"+GISdataReleaseDir);
 
+        LP.setLandUseFieldName(m_LandUseFieldName);
         LP.preprocessVectorData();
         LP.preprocessRasterData();
         LP.createSRFandLNR();
@@ -128,8 +131,7 @@ class PreparationSimulator : public openfluid::ware::PluggableSimulator
 
     openfluid::base::SchedulingRequest runStep()
     {
-
-      return Never();
+    	return Never();
     }
 
 

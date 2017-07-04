@@ -269,6 +269,8 @@ class LandProcessor
 
     void releaseFiles();
 
+	void setLandUseFieldName(const std::string& LandUseFieldName);
+
 };
 
 

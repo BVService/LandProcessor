@@ -1,0 +1,11 @@
+<?xml version="1.0" standalone="yes"?>
+<openfluid>
+ <model>
+  <simulator ID="landprocessor.preparation-stage" enabled="1">
+  	<param name = "LandUseFieldName" value="OcSol"/>
+  </simulator>
+  <simulator ID="landprocessor.scenario-stage" enabled="1">
+  	<param name = "LandUseFieldName" value="OcSol"/>
+  </simulator>
+ </model>
+</openfluid>

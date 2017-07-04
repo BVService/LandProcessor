@@ -16,6 +16,8 @@ BEGIN_SIMULATOR_SIGNATURE("landprocessor.scenario-stage")
   DECLARE_VERSION("")
   DECLARE_STATUS(openfluid::ware::BETA)
 
+  DECLARE_USED_PARAMETER("LandUseFieldName","","-");
+
 
 END_SIMULATOR_SIGNATURE
 
@@ -31,6 +33,7 @@ class ScenarioSimulator : public openfluid::ware::PluggableSimulator
 {
   private:
 
+	std::string m_LandUseFieldName;
     std::string GISdataInputDir = "gisdata-input";
     std::string GISdataOutputDir = "gisdata-output";
     std::string GISdataReleaseDir = "gisdata-release";
@@ -39,7 +42,7 @@ class ScenarioSimulator : public openfluid::ware::PluggableSimulator
   public:
 
 
-    ScenarioSimulator(): PluggableSimulator()
+    ScenarioSimulator(): PluggableSimulator(), m_LandUseFieldName("LandUse")
     {
 
 
@@ -63,7 +66,7 @@ class ScenarioSimulator : public openfluid::ware::PluggableSimulator
 
     void initParams(const openfluid::ware::WareParams_t& Params)
     {
-
+    	OPENFLUID_GetSimulatorParameter(Params, "LandUseFieldName", m_LandUseFieldName);
     }
 
 
@@ -84,6 +87,7 @@ class ScenarioSimulator : public openfluid::ware::PluggableSimulator
                          OutputDir+"/"+GISdataOutputDir,
                          OutputDir+"/"+GISdataReleaseDir);
 
+        LP.setLandUseFieldName(m_LandUseFieldName);
         LP.createSU();
         LP.createRS();
         LP.createLI();
@@ -127,7 +131,6 @@ class ScenarioSimulator : public openfluid::ware::PluggableSimulator
 
     openfluid::base::SchedulingRequest runStep()
     {
-
       return Never();
     }
 

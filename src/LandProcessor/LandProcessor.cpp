@@ -4502,7 +4502,7 @@ void LandProcessor::setSRFParameters()
       IDPlot = std::stoi(ID.substr(0, ID.find("N")));
       if (IDPlot != 0)
       {
-        m_SQLRequest = "SELECT LandUse FROM " + InputPlotsLayerName + " WHERE " + m_IDFieldName + " == "  + std::to_string(IDPlot);
+        m_SQLRequest = "SELECT " + m_LandUseFieldName + " FROM " + InputPlotsLayerName + " WHERE " + m_IDFieldName + " == "  + std::to_string(IDPlot);
         SQLLayer = Plots->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
         LandUseValue = SQLLayer->GetFeature(0)->GetFieldAsString(m_LandUseFieldName.c_str());
         SRFFeature->SetField("LandUse", LandUseValue.c_str());
@@ -5936,36 +5936,37 @@ void LandProcessor::releaseVectorFile(const std::string& Filename)
 
 	VERBOSE_MESSAGE(2,"Releasing vector file : " << Filename);
 
-  mp_VectorDriver = OGRSFDriverRegistrar::GetRegistrar()->GetDriverByName(m_VectorDriverName.c_str());
+	mp_VectorDriver = OGRSFDriverRegistrar::GetRegistrar()->GetDriverByName(m_VectorDriverName.c_str());
 
-  //=========================================================================
-  // Removing destination file if exists
-  //=========================================================================
+	//=========================================================================
+	// Removing destination file if exists
+	//=========================================================================
 
-  OGRDataSource* TestDest = OGRSFDriverRegistrar::Open(getReleaseVectorPath(Filename).c_str(),false);
+	OGRDataSource* TestDest = OGRSFDriverRegistrar::Open(getReleaseVectorPath(Filename).c_str(),false);
 
-  if (TestDest)
-  {
-    OGRDataSource::DestroyDataSource(TestDest);
-    mp_VectorDriver->DeleteDataSource(getReleaseVectorPath(Filename).c_str());
-  }
+	if (TestDest)
+	{
+		OGRDataSource::DestroyDataSource(TestDest);
+		mp_VectorDriver->DeleteDataSource(getReleaseVectorPath(Filename).c_str());
+	}
 
   //=========================================================================
   // Perform copy
   //=========================================================================
 
-  OGRDataSource* Source = OGRSFDriverRegistrar::Open(getOutputVectorPath(Filename).c_str(),false);
+	OGRDataSource* Source = OGRSFDriverRegistrar::Open(getOutputVectorPath(Filename).c_str(),false);
 
-  if (!Source)
-  {
-    throw std::runtime_error("LandProcessor::releasVectorFile(): " + Filename + ": no such file in the output vector directory");
-  }
+	if (!Source)
+	{
+		throw std::runtime_error("LandProcessor::releasVectorFile(): " + Filename + ": no such file in the output vector directory");
+	}
 
-  OGRDataSource* Copy = mp_VectorDriver->CopyDataSource(Source,getReleaseVectorPath(Filename).c_str(),nullptr);
+	OGRDataSource* Copy = mp_VectorDriver->CopyDataSource(Source,getReleaseVectorPath(Filename).c_str(),nullptr);
 
-  OGRDataSource::DestroyDataSource(Copy);
+	OGRDataSource::DestroyDataSource(Copy);
 
-  OGRDataSource::DestroyDataSource(Source);
+	OGRDataSource::DestroyDataSource(Source);
+
 }
 
 
@@ -6789,3 +6790,16 @@ void LandProcessor::repackLayer(OGRDataSource* DataSource)
 
 // =====================================================================
 // =====================================================================
+
+
+void LandProcessor::setLandUseFieldName(const std::string& LandUseFieldName)
+{
+	VERBOSE_MESSAGE(1,"Entering " << __PRETTY_FUNCTION__);
+
+	m_LandUseFieldName = LandUseFieldName;
+}
+
+
+// =====================================================================
+// =====================================================================
+
