@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
                      TESTS_EXECS_PATH+"/DardaillonSmallWithParam_0/output",
                      TESTS_EXECS_PATH+"/DardaillonSmallWithParam_0/release");
 
-    LP.setLandUseFieldName("OcSol");
+    LP.setLandUseFieldName("LandUse");
     LP.preprocessVectorData();
     LP.preprocessRasterData();
     LP.createSRFandLNR();

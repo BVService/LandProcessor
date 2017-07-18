@@ -245,9 +245,6 @@ void LandProcessor::preprocessVectorData()
 	OGRGeometry *NewGeometry;
 	OGRFeatureDefn *FeatureDefn;
 
-	OGRSpatialReference *VectorSRS;
-	const char *VectorDataEPSGCode;
-
 	mp_VectorDriver = OGRSFDriverRegistrar::GetRegistrar()->GetDriverByName(m_VectorDriverName.c_str());
 
 	//======================================================================
@@ -256,10 +253,15 @@ void LandProcessor::preprocessVectorData()
 
 	std::vector <int> geometryTypes = {3,6};
 
+	if (!doesDataExist(getInputVectorPath(m_InputPlotsVectorFile).c_str()))
+	{
+		throw std::runtime_error("LandProcessor::preprocessVectorData(): " + getInputVectorPath(m_InputPlotsVectorFile) + ": no such file in the input vector directory");
+	}
+
 	if (!checkVectorData(getInputVectorPath(m_InputPlotsVectorFile).c_str(), geometryTypes))
 	{
 		checkVectorDataDetails(getInputVectorPath(m_InputPlotsVectorFile).c_str(), geometryTypes);
-		throw std::runtime_error("Vector data " + getInputVectorPath(m_InputPlotsVectorFile) + " that you provided are not conform with LandProcessor requirements");
+		throw std::runtime_error("LandProcessor::preprocessVectorData(): " + getInputVectorPath(m_InputPlotsVectorFile) + ": provided data does not satisfy one or several LandProcessor requirements");
 	}
 
 	//======================================================================
@@ -530,42 +532,27 @@ void LandProcessor::preprocessRasterData()
   OGRGeometry *UnionGeometry;
   OGREnvelope *Envelope;
 
-  OGRSpatialReference RasterSRS;
-  const char *RasterDataEPSGCode;
-
-  DEM = (GDALDataset *) GDALOpen( getInputRasterPath(m_InputDEMFile).c_str(), GA_ReadOnly );
-
-  if (DEM->GetDriver()->GetDescription() != m_RasterDriverName)
+  if (!doesDataExist(getInputRasterPath(m_InputDEMFile).c_str()))
   {
-    throw std::runtime_error("LandProcessor::preprocessVectorData(): " + m_InputDEMFile + ": raster file is not in GTiff format");
+	  throw std::runtime_error("LandProcessor::preprocessRasterData(): " + getInputRasterPath(m_InputDEMFile) + ": no such file in the input raster directory");
   }
 
-  if (!DEM->GetProjectionRef())
+  if (!checkRasterData(getInputRasterPath(m_InputDEMFile).c_str()))
   {
-    throw std::runtime_error("LandProcessor::preprocessVectorData(): " + m_InputDEMFile + ": no spatial reference information is provided for the raster file");
-  }
-
-  RasterSRS.SetFromUserInput(DEM->GetProjectionRef());
-  RasterDataEPSGCode = RasterSRS.GetAttrValue("AUTHORITY",1);
-
-  if (!RasterDataEPSGCode)
-  {
-    throw std::runtime_error("LandProcessor::preprocessVectorData(): " + m_InputDEMFile + ": no EPSG code provided for the raster data");
-  }
-
-  if (RasterDataEPSGCode != m_EPSGCode.substr(m_EPSGCode.find(":")+1, m_EPSGCode.length()-1))
-  {
-    throw std::runtime_error("LandProcessor::preprocessVectorData(): " + m_InputDEMFile + ": raster data EPSG code does not correspond to the default EPSG code");
+	  checkRasterDataDetails(getInputRasterPath(m_InputDEMFile).c_str());
+	  throw std::runtime_error("LandProcessor::preprocessRasterData(): " + getInputRasterPath(m_InputDEMFile) + ": provided data does not satisfy one or several LandProcessor requirements");
   }
 
   if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputPlotsVectorFile)))
   {
-    throw std::runtime_error("LandProcessor::preprocessRasterData(): " + m_OutputPlotsVectorFile + ": no such file in the output vector directory");
+    throw std::runtime_error("LandProcessor::preprocessRasterData(): " + getOutputVectorPath(m_OutputPlotsVectorFile) + ": no such file in the output vector directory");
   }
 
   // ======================================================================================
   // Get DTM transform coefficients that will be used to set the region in GRASS GIS
   // ======================================================================================
+
+  DEM = (GDALDataset *) GDALOpen( getInputRasterPath(m_InputDEMFile).c_str(), GA_ReadOnly );
 
   mp_RasterDriver = DEM->GetDriver();
 
@@ -664,8 +651,75 @@ void LandProcessor::preprocessRasterData()
 
   GRASS.appendTask("r.fill.dir", {{"input",QString::fromStdString("dem")},
                                   {"output",QString::fromStdString("demclean")},
-                                  {"direction",QString::fromStdString("direction")}},
+                                  {"direction",QString::fromStdString("direction")},
+  	  	  	  	  	  	  	  	  {"areas",QString::fromStdString("areas")}},
                    {"--o"});
+
+  GRASS.appendTask("r.out.gdal", {{"input",QString::fromStdString("areas")},
+                                  {"output", QString::fromStdString(getOutputRasterPath(m_OutputProblemAreasFile))},
+                                  {"format", QString::fromStdString("GTiff")}},
+                   {"--o"});
+
+  if (GRASS.runJob() != 0)
+  {
+    throw std::runtime_error("LandProcessor::preprocessRasterData() : unable to run GRASS job (see file " + m_TmpPath + "/processrasterdata.err)");
+  }
+
+  GDALDataset *Areas = (GDALDataset *) GDALOpen( getOutputRasterPath(m_OutputProblemAreasFile).c_str(), GA_ReadOnly );
+  GDALRasterBand *AreasBand = Areas->GetRasterBand(1);
+
+  double MinValue, MaxValue;
+
+  int Count = 0;
+
+  AreasBand->GetStatistics(1,1,&MinValue,&MaxValue,nullptr,nullptr);
+
+  GDALClose(Areas);
+
+  while (MinValue != 0 and MaxValue != 0)
+  {
+	  if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputProblemAreasFile)))
+	  {
+	    mp_RasterDriver->Delete(getOutputRasterPath(m_OutputProblemAreasFile).c_str());
+	  }
+
+	  GRASS.appendTask("g.remove", {{"type",QString::fromStdString("raster")},
+	                                  {"name",QString::fromStdString("dem")}},
+			  {"-f"});
+
+
+	  GRASS.appendTask("g.rename", {{"raster",QString::fromStdString("demclean,dem")}});
+
+	  GRASS.appendTask("r.fill.dir", {{"input",QString::fromStdString("dem")},
+	                                  {"output",QString::fromStdString("demclean")},
+	                                  {"direction",QString::fromStdString("direction")},
+	  	  	  	  	  	  	  	  	  {"areas",QString::fromStdString("areas")}},
+	                   {"--o"});
+
+	  GRASS.appendTask("r.out.gdal", {{"input",QString::fromStdString("areas")},
+	                                  {"output", QString::fromStdString(getOutputRasterPath(m_OutputProblemAreasFile))},
+	                                  {"format", QString::fromStdString("GTiff")}},
+	                   {"--o"});
+
+	  if (GRASS.runJob() != 0)
+	  {
+	    throw std::runtime_error("LandProcessor::preprocessRasterData() : unable to run GRASS job (see file " + m_TmpPath + "/processrasterdata.err)");
+	  }
+
+	  Areas = (GDALDataset *) GDALOpen( getOutputRasterPath(m_OutputProblemAreasFile).c_str(), GA_ReadOnly );
+	  AreasBand = Areas->GetRasterBand(1);
+
+	  AreasBand->GetStatistics(1,1,&MinValue,&MaxValue,nullptr,nullptr);
+
+	  GDALClose(Areas);
+
+	  Count++;
+
+	  if (Count >= 5)
+	  {
+		  break;
+	  }
+}
 
   GRASS.appendTask("r.slope.aspect", {{"elevation", QString::fromStdString("demclean")},
                                       {"slope", QString::fromStdString("slope")}},
@@ -674,7 +728,6 @@ void LandProcessor::preprocessRasterData()
   GRASS.appendTask("r.watershed", {{"elevation", QString::fromStdString("demclean")},
                                    {"drainage", QString::fromStdString("drainageraster")}},
                    {"-sb"});
-
 
 
   if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputDEMFile)))
@@ -1423,7 +1476,7 @@ void LandProcessor::createSRFandLNR()
     {
       OutletsGeometry = OutletsFeature->GetGeometryRef();
       getCentroidPoint(OutletsGeometry);
-      Value = extractFromRasterToPoint(Dataset,1);
+      Value = extractIntegerFromRasterToPoint(Dataset,1);
       if (Value == -9999)
       {
         OutletsFeature->SetField(1, 0);
@@ -1455,7 +1508,7 @@ void LandProcessor::createSRFandLNR()
     {
       OutletsGeometry = OutletsFeature->GetGeometryRef();
       getCentroidPoint(OutletsGeometry);
-      Value = extractFromRasterToPoint(Dataset, 1);
+      Value = extractIntegerFromRasterToPoint(Dataset, 1);
       if (Value == -9999)
       {
         OutletsFeature->SetField(2, 0);
@@ -1527,7 +1580,7 @@ void LandProcessor::createSRFandLNR()
     {
       ReceiversGeometry = ReceiversFeature->GetGeometryRef();
       getCentroidPoint(ReceiversGeometry);
-      Value = extractFromRasterToPoint(Dataset, 1);
+      Value = extractIntegerFromRasterToPoint(Dataset, 1);
       if (Value == -9999)
       {
         ReceiversFeature->SetField(1, 0);
@@ -1559,7 +1612,7 @@ void LandProcessor::createSRFandLNR()
     {
       ReceiversGeometry = ReceiversFeature->GetGeometryRef();
       getCentroidPoint(ReceiversGeometry);
-      Value = extractFromRasterToPoint(Dataset, 1);
+      Value = extractIntegerFromRasterToPoint(Dataset, 1);
       if (Value == -9999)
       {
         ReceiversFeature->SetField(2, 0);
@@ -1859,6 +1912,7 @@ void LandProcessor::createSRFandLNR()
   BigTable[2] = Table[2];
   BigTable[3] = Table[3];
   BigTable[4] = Table[4];
+
   FIDTable.clear();
 
   DataSource = OGRSFDriverRegistrar::Open(getOutputVectorPath().c_str(), TRUE );
@@ -2277,8 +2331,6 @@ void LandProcessor::createSRFandLNR()
         IDPlot3NewTable.push_back(SQLLayer->GetFeature(0)->GetFieldAsInteger("IDPlot3"));
         ID3NewTable.push_back(SQLLayer->GetFeature(0)->GetFieldAsString("ID3"));
       }
-      //else
-    	// TODO exception
       DataSource->ReleaseResultSet(SQLLayer);
     }
     Entities = OGRSFDriverRegistrar::Open(getOutputVectorPath(m_OutputEntitiesVectorFile).c_str(), TRUE );
@@ -4842,7 +4894,7 @@ void LandProcessor::createRS()
 
   if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputLinearEntitiesVectorFile)))
   {
-    throw std::runtime_error("LandProcessor::createRS(): " + m_OutputLinearEntitiesVectorFile + ": no such file in the output vector directory");
+	  throw std::runtime_error("LandProcessor::createRS(): " + m_OutputLinearEntitiesVectorFile + ": no such file in the output vector directory");
   }
 
 
@@ -4850,7 +4902,7 @@ void LandProcessor::createRS()
       !openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputThalwegsVectorFile)) and
       !openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputRiversVectorFile)))
   {
-    std::cout << "LandProcessor::createRS(): There are no linear structure files in the input vector directory that could be used to create RS vector" << std::endl;
+	  std::cout << "LandProcessor::createRS(): There are no linear structure files in the input vector directory that could be used to create RS vector" << std::endl;
   }
   else
   {
@@ -4873,207 +4925,212 @@ void LandProcessor::createRS()
 	 // Creating attributes and populating them
 	 // ==========================================================================
 
-    RS = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputRSVectorFile).c_str(), TRUE );
+	 RS = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputRSVectorFile).c_str(), TRUE );
 
-    FieldNamesTable.clear();
+	 FieldNamesTable.clear();
 
-    RSLayer = RS->GetLayer(0);
-    RSLayer->ResetReading();
+	 RSLayer = RS->GetLayer(0);
+	 RSLayer->ResetReading();
 
-    FieldNamesTable = {"FlowDist", "Ditches", "Thalwegs", "WaterCs", "DitchesL", "ThalwegsL", "WaterCsL", "SurfToLen"};
+	 FieldNamesTable = {"FlowDist", "Ditches", "Thalwegs", "WaterCs", "DitchesL", "ThalwegsL", "WaterCsL", "SurfToLen"};
 
-    for (unsigned int i = 0; i < FieldNamesTable.size(); i++)
-    {
-      createField(RSLayer, FieldNamesTable[i].c_str(), OFTReal);
-    }
+	 for (unsigned int i = 0; i < FieldNamesTable.size(); i++)
+	 {
+		 createField(RSLayer, FieldNamesTable[i].c_str(), OFTReal);
+	 }
 
-    RSLayer = RS->GetLayer(0);
-    RSLayer->ResetReading();
+	 RSLayer = RS->GetLayer(0);
+	 RSLayer->ResetReading();
 
-    while ((RSFeature = RSLayer->GetNextFeature()) != nullptr)
-    {
-      for (unsigned int i = 0; i < FieldNamesTable.size(); i++)
-      {
-        RSFeature->SetField(FieldNamesTable[i].c_str(), 0);
-        RSLayer->SetFeature(RSFeature);
-      }
-    }
+	 while ((RSFeature = RSLayer->GetNextFeature()) != nullptr)
+	 {
+		 for (unsigned int i = 0; i < FieldNamesTable.size(); i++)
+		 {
+			 RSFeature->SetField(FieldNamesTable[i].c_str(), 0);
+			 RSLayer->SetFeature(RSFeature);
+		 }
+	 }
 
-    FieldNamesTable.clear();
+	 FieldNamesTable.clear();
 
     // ================================================================================
     // Deleting all RS that have 'None' in IDTo field (not crossed by the surface flow)
     // ================================================================================
 
-    RSLayer = RS->GetLayer(0);
-    RSLayer->ResetReading();
+	 RSLayer = RS->GetLayer(0);
+	 RSLayer->ResetReading();
 
-    while ((RSFeature = RSLayer->GetNextFeature()) != nullptr)
-    {
-      int FID = RSFeature->GetFID();
-      IDTo = "None";
-      if (RSFeature->GetFieldAsString("IDTo") == IDTo)
-      {
-        RSLayer->DeleteFeature(FID);
-      }
-    }
+	 while ((RSFeature = RSLayer->GetNextFeature()) != nullptr)
+	 {
+		 int FID = RSFeature->GetFID();
+		 IDTo = "None";
+		 if (RSFeature->GetFieldAsString("IDTo") == IDTo)
+		 {
+			 RSLayer->DeleteFeature(FID);
+		 }
+	 }
 
-    const std::string RSLayerName = getLayerNameFromFilename(m_OutputRSVectorFile);
+	 const std::string RSLayerName = getLayerNameFromFilename(m_OutputRSVectorFile);
 
-    repackLayer(RS);
+	 repackLayer(RS);
 
     // =========================================================================================
     // Setting IDTo to 'None' since (by convention) RS# segments are exits
     // =========================================================================================
 
-    RSLayer = RS->GetLayer(0);
-    RSLayer->ResetReading();
+	 RSLayer = RS->GetLayer(0);
+	 RSLayer->ResetReading();
 
-    while ((RSFeature = RSLayer->GetNextFeature()) != nullptr)
-    {
-      RSFeature->SetField("IDTo", "None");
-      RSLayer->SetFeature(RSFeature);
-    }
+	 while ((RSFeature = RSLayer->GetNextFeature()) != nullptr)
+	 {
+		 RSFeature->SetField("IDTo", "None");
+		 RSLayer->SetFeature(RSFeature);
+	 }
 
-    RSLayer->SyncToDisk();
+	 RSLayer->SyncToDisk();
 
     // ================================================================================
     // Populating attributes that suppose to contain information about linear structures
     // ================================================================================
 
-    FieldNamesTable.clear();
-    FieldNamesLTable.clear();
+	 FieldNamesTable.clear();
+	 FieldNamesLTable.clear();
 
-    FieldNamesTable = {"Ditches", "Thalwegs", "WaterCs"};
-    FieldNamesLTable = {"DitchesL", "ThalwegsL", "WaterCsL"};
+	 FieldNamesTable = {"Ditches", "Thalwegs", "WaterCs"};
+	 FieldNamesLTable = {"DitchesL", "ThalwegsL", "WaterCsL"};
 
-    std::vector <int> GeometryTypes = {2,5};
+	 std::vector <int> GeometryTypes = {2,5};
 
-    for (unsigned int i = 0; i < FileNamesTable.size(); i++)
-    {
-    	if (!checkVectorData(getInputVectorPath(FileNamesTable[i]).c_str(), GeometryTypes))
-    	{
-    		checkVectorDataDetails(getInputVectorPath(FileNamesTable[i]).c_str(), GeometryTypes);
-    		std::cout << "Vector data " << getInputVectorPath(FileNamesTable[i]) << " that you provided are not conform with LandProcessor requirements" << std::endl;
-    	}
-    	else
-    	{
-       		copyVectorFile(getInputVectorPath().c_str(), getOutputVectorPath().c_str(), FileNamesTable[i]);
-       		attributeLinearStructures(FileNamesTable[i]);
-    		DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
-    		RSLayer = RS->GetLayer(0);
-    		RSLayer->ResetReading();
-    		const std::string FileLayerName = FileNamesTable[i].substr(0, FileNamesTable[i].find(".shp"));
+	 for (unsigned int i = 0; i < FileNamesTable.size(); i++)
+	 {
+		 if (!doesDataExist(getInputVectorPath(FileNamesTable[i]).c_str()))
+		 {
+			 std::cout << "LandProcessor::createRS(): " << getInputVectorPath(FileNamesTable[i]).c_str() << ": no such file in the input vector directory" << std::endl;
+		 }
+		 else
+		 {
+			 if (!checkVectorData(getInputVectorPath(FileNamesTable[i]).c_str(), GeometryTypes))
+			 {
+				 checkVectorDataDetails(getInputVectorPath(FileNamesTable[i]).c_str(), GeometryTypes);
+			 }
+			 else
+			 {
+				 copyVectorFile(getInputVectorPath().c_str(), getOutputVectorPath().c_str(), FileNamesTable[i]);
+				 attributeLinearStructures(FileNamesTable[i]);
+				 DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
+				 RSLayer = RS->GetLayer(0);
+				 RSLayer->ResetReading();
+				 const std::string FileLayerName = FileNamesTable[i].substr(0, FileNamesTable[i].find(".shp"));
+				 for (unsigned int j = 0; j < RSLayer->GetFeatureCount(); j++)
+				 {
+					 RSFeature = RSLayer->GetFeature(j);
+					 m_SQLRequest = "SELECT ST_Length(ST_Intersection(geometry,(SELECT ST_Buffer(geometry,0.05) FROM " + RSLayerName + " WHERE ROWID == " + std::to_string(RSFeature->GetFID()) + "))) AS Length "
+							 "FROM " + FileLayerName + " "
+							 "WHERE ST_Length(ST_Intersection(geometry,(SELECT ST_Buffer(geometry,0.05) FROM " + RSLayerName + " WHERE ROWID == " + std::to_string(RSFeature->GetFID()) + "))) > 0.1";
+					 SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
+					 if (SQLLayer->GetFeatureCount() > 0)
+					 {
+						 double Length = 0;
+						 for (unsigned int k = 0; k < SQLLayer->GetFeatureCount(); k++)
+						 {
+							 Length = Length + SQLLayer->GetFeature(k)->GetFieldAsDouble("Length");
+						 }
+						 RSFeature->SetField(FieldNamesLTable[i].c_str(), Length);
+						 RSLayer->SetFeature(RSFeature);
+					 }
+					 DataSource->ReleaseResultSet(SQLLayer);
+				 }
+				 RSLayer->SyncToDisk();
+				 OGRDataSource::DestroyDataSource(DataSource);
+			 }
+		 }
+	 }
 
-    		for (unsigned int j = 0; j < RSLayer->GetFeatureCount(); j++)
-    		{
-    			RSFeature = RSLayer->GetFeature(j);
-    			m_SQLRequest = "SELECT ST_Length(ST_Intersection(geometry,(SELECT ST_Buffer(geometry,0.05) FROM " + RSLayerName + " WHERE ROWID == " + std::to_string(RSFeature->GetFID()) + "))) AS Length "
-    					"FROM " + FileLayerName + " "
-						"WHERE ST_Length(ST_Intersection(geometry,(SELECT ST_Buffer(geometry,0.05) FROM " + RSLayerName + " WHERE ROWID == " + std::to_string(RSFeature->GetFID()) + "))) > 0.1";
-    			SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
-    			if (SQLLayer->GetFeatureCount() > 0)
-    			{
-    				double Length = 0;
-    				for (unsigned int k = 0; k < SQLLayer->GetFeatureCount(); k++)
-    				{
-    					Length = Length + SQLLayer->GetFeature(k)->GetFieldAsDouble("Length");
-    				}
-    				RSFeature->SetField(FieldNamesLTable[i].c_str(), Length);
-    				RSLayer->SetFeature(RSFeature);
-    			}
-    			DataSource->ReleaseResultSet(SQLLayer);
-    		}
-			RSLayer->SyncToDisk();
-			OGRDataSource::DestroyDataSource(DataSource);
-    	}
-    }
+	 RSLayer = RS->GetLayer(0);
+	 RSLayer->ResetReading();
 
-    RSLayer = RS->GetLayer(0);
-    RSLayer->ResetReading();
+	 while ((RSFeature = RSLayer->GetNextFeature()) != nullptr)
+	 {
+		 for (unsigned int i = 0; i < FieldNamesLTable.size(); i++)
+		 {
+			 double Length = RSFeature->GetFieldAsDouble("Length");
+			 double LSLength = RSFeature->GetFieldAsDouble(FieldNamesLTable[i].c_str());
+			 if (LSLength > Length)
+			 {
+				 RSFeature->SetField(FieldNamesLTable[i].c_str(), Length);
+				 RSLayer->SetFeature(RSFeature);
+			 }
+		 }
+	 }
 
-    while ((RSFeature = RSLayer->GetNextFeature()) != nullptr)
-    {
-      for (unsigned int i = 0; i < FieldNamesLTable.size(); i++)
-      {
-        double Length = RSFeature->GetFieldAsDouble("Length");
-        double LSLength = RSFeature->GetFieldAsDouble(FieldNamesLTable[i].c_str());
-        if (LSLength > Length)
-        {
-          RSFeature->SetField(FieldNamesLTable[i].c_str(), Length);
-          RSLayer->SetFeature(RSFeature);
-        }
-      }
-    }
+	 RSLayer->SyncToDisk();
 
-    RSLayer->SyncToDisk();
+	 RSLayer = RS->GetLayer(0);
+	 RSLayer->ResetReading();
 
-    RSLayer = RS->GetLayer(0);
-    RSLayer->ResetReading();
+	 while ((RSFeature = RSLayer->GetNextFeature()) != nullptr)
+	 {
+		 for (unsigned int i = 0; i < FieldNamesLTable.size(); i++)
+		 {
+			 double Length = RSFeature->GetFieldAsDouble("Length");
+			 double LSLength = RSFeature->GetFieldAsDouble(FieldNamesLTable[i].c_str());
+			 if (LSLength != Length and LSLength < 0.05*6)
+			 {
+				 RSFeature->SetField(FieldNamesLTable[i].c_str(), 0);
+				 RSLayer->SetFeature(RSFeature);
+			 }
+		 }
+	 }
 
-    while ((RSFeature = RSLayer->GetNextFeature()) != nullptr)
-    {
-      for (unsigned int i = 0; i < FieldNamesLTable.size(); i++)
-      {
-    	double Length = RSFeature->GetFieldAsDouble("Length");
-    	double LSLength = RSFeature->GetFieldAsDouble(FieldNamesLTable[i].c_str());
-        if (LSLength != Length and LSLength < 0.05*6)
-        {
-          RSFeature->SetField(FieldNamesLTable[i].c_str(), 0);
-          RSLayer->SetFeature(RSFeature);
-        }
-      }
-    }
-
-    RSLayer->SyncToDisk();
+	 RSLayer->SyncToDisk();
 
     // =====================================================================
     // Removing RS that do not have any linear structures attributed to them
     // =====================================================================
 
-    RSLayer = RS->GetLayer(0);
-    RSLayer->ResetReading();
+	 RSLayer = RS->GetLayer(0);
+	 RSLayer->ResetReading();
 
-    while ((RSFeature = RSLayer->GetNextFeature()) != nullptr)
-    {
-      int FID = RSFeature->GetFID();
-      if (RSFeature->GetFieldAsDouble("DitchesL") == 0 and
-          RSFeature->GetFieldAsDouble("ThalwegsL") == 0 and RSFeature->GetFieldAsDouble("WaterCsL") == 0)
-      {
-        RSLayer->DeleteFeature(FID);
-      }
-    }
+	 while ((RSFeature = RSLayer->GetNextFeature()) != nullptr)
+	 {
+		 int FID = RSFeature->GetFID();
+		 if (RSFeature->GetFieldAsDouble("DitchesL") == 0 and
+				 RSFeature->GetFieldAsDouble("ThalwegsL") == 0 and RSFeature->GetFieldAsDouble("WaterCsL") == 0)
+		 {
+			 RSLayer->DeleteFeature(FID);
+		 }
+	 }
 
-    repackLayer(RS);
+	 repackLayer(RS);
 
     // ====================================================================================
     // Setting attributes to contain the linear structure length to actual RS# length ratio
     // ====================================================================================
 
-    RSLayer = RS->GetLayer(0);
-    RSLayer->ResetReading();
+	 RSLayer = RS->GetLayer(0);
+	 RSLayer->ResetReading();
 
-    while ((RSFeature = RSLayer->GetNextFeature()) != nullptr)
-    {
-      for (unsigned int i = 0; i < FieldNamesLTable.size(); i++)
-      {
-        double Length = RSFeature->GetFieldAsDouble("Length");
-        double LSLength = RSFeature->GetFieldAsDouble(FieldNamesLTable[i].c_str());
-        RSFeature->SetField(FieldNamesTable[i].c_str(), LSLength/Length);
-        RSLayer->SetFeature(RSFeature);
-      }
-      RSLayer->SyncToDisk();
-    }
+	 while ((RSFeature = RSLayer->GetNextFeature()) != nullptr)
+	 {
+		 for (unsigned int i = 0; i < FieldNamesLTable.size(); i++)
+		 {
+			 double Length = RSFeature->GetFieldAsDouble("Length");
+			 double LSLength = RSFeature->GetFieldAsDouble(FieldNamesLTable[i].c_str());
+			 RSFeature->SetField(FieldNamesTable[i].c_str(), LSLength/Length);
+			 RSLayer->SetFeature(RSFeature);
+		 }
+		 RSLayer->SyncToDisk();
+	 }
 
-    FileNamesTable.clear();
-    FieldNamesTable.clear();
-    FieldNamesLTable.clear();
+	 FileNamesTable.clear();
+	 FieldNamesTable.clear();
+	 FieldNamesLTable.clear();
 
-    RSLayer->SyncToDisk();
+	 RSLayer->SyncToDisk();
 
-    OGRDataSource::DestroyDataSource(RS);
+	 OGRDataSource::DestroyDataSource(RS);
 
-    m_VectorFilesToRelease.push_back(m_OutputRSVectorFile);
+	 m_VectorFilesToRelease.push_back(m_OutputRSVectorFile);
 
   }
 }
@@ -5119,19 +5176,13 @@ void LandProcessor::createLI()
 	  throw std::runtime_error("LandProcessor::createLI(): " + m_OutputLinearEntitiesVectorFile + ": no such file in the output vector directory");
   }
 
-  if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputPlotsVectorFile)))
-  {
-	  throw std::runtime_error("LandProcessor::createLI(): " + m_OutputPlotsVectorFile + ": no such file in the output vector directory");
-  }
-
   if (!openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputHedgesVectorFile)) and
       !openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputGrassBandVectorFile)) and
       !openfluid::tools::Filesystem::isFile(getInputVectorPath(m_InputBenchesVectorFile)))
   {
 	  std::cout << "LandProcessor::createLI(): There are no linear structure files in the input vector directory that could be attributed. LI vector will be created without them." << std::endl;
   }
-  else
-  {
+
 	// ====================================================================
     // Creating the LI file
     // ====================================================================
@@ -5213,39 +5264,45 @@ void LandProcessor::createLI()
 	  std::vector <int> GeometryTypes = {2,5};
 
 	  for (unsigned int i = 0; i < FileNamesTable.size(); i++)
-	   {
-		  if (!checkVectorData(getInputVectorPath(FileNamesTable[i]).c_str(), GeometryTypes))
+	  {
+		  if (!doesDataExist(getInputVectorPath(FileNamesTable[i]).c_str()))
 		  {
-			  checkVectorDataDetails(getInputVectorPath(FileNamesTable[i]).c_str(), GeometryTypes);
-			  std::cout << "Vector data " << getInputVectorPath(FileNamesTable[i]) << " that you provided are not conform with LandProcessor requirements" << std::endl;
+			  std::cout << "LandProcessor::createLI(): " << getInputVectorPath(FileNamesTable[i]).c_str() << ": no such file in the input vector directory" << std::endl;
 		  }
 		  else
 		  {
-				copyVectorFile(getInputVectorPath().c_str(), getOutputVectorPath().c_str(), FileNamesTable[i]);
-				attributeLinearStructures(FileNamesTable[i]);
-				DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
-				LILayer = LI->GetLayer(0);
-				for (unsigned int j = 0; j < LILayer->GetFeatureCount(); j++)
-				{
-					LIFeature = LILayer->GetFeature(j);
-					m_SQLRequest = "SELECT ST_Length(ST_Intersection(geometry,(SELECT ST_Buffer(geometry,0.05) FROM " + LILayerName + " WHERE ROWID == " + std::to_string(LIFeature->GetFID()) + "))) AS Length "
-            			"FROM " + FileNamesTable[i].substr(0, FileNamesTable[i].find(".shp")) + " "
-						"WHERE ST_Length(ST_Intersection(geometry,(SELECT ST_Buffer(geometry,0.05) FROM " + LILayerName + " WHERE ROWID == " + std::to_string(LIFeature->GetFID()) + "))) > 0.1";
-					OGRLayer *SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
-					if (SQLLayer->GetFeatureCount() > 0)
-					{
-						double Length = 0;
-						for (unsigned int k = 0; k < SQLLayer->GetFeatureCount(); k++)
-						{
-							Length = Length + SQLLayer->GetFeature(k)->GetFieldAsDouble("Length");
-						}
-						LIFeature->SetField(FieldNamesLTable[i].c_str(), Length);
-						LILayer->SetFeature(LIFeature);
-					}
-					DataSource->ReleaseResultSet(SQLLayer);
-				}
-				LILayer->SyncToDisk();
-				OGRDataSource::DestroyDataSource(DataSource);
+			  if (!checkVectorData(getInputVectorPath(FileNamesTable[i]).c_str(), GeometryTypes))
+			  {
+				  checkVectorDataDetails(getInputVectorPath(FileNamesTable[i]).c_str(), GeometryTypes);
+			  }
+			  else
+			  {
+				  copyVectorFile(getInputVectorPath().c_str(), getOutputVectorPath().c_str(), FileNamesTable[i]);
+				  attributeLinearStructures(FileNamesTable[i]);
+				  DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
+				  LILayer = LI->GetLayer(0);
+				  for (unsigned int j = 0; j < LILayer->GetFeatureCount(); j++)
+				  {
+					  LIFeature = LILayer->GetFeature(j);
+					  m_SQLRequest = "SELECT ST_Length(ST_Intersection(geometry,(SELECT ST_Buffer(geometry,0.05) FROM " + LILayerName + " WHERE ROWID == " + std::to_string(LIFeature->GetFID()) + "))) AS Length "
+							  "FROM " + FileNamesTable[i].substr(0, FileNamesTable[i].find(".shp")) + " "
+							  "WHERE ST_Length(ST_Intersection(geometry,(SELECT ST_Buffer(geometry,0.05) FROM " + LILayerName + " WHERE ROWID == " + std::to_string(LIFeature->GetFID()) + "))) > 0.1";
+					  OGRLayer *SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
+					  if (SQLLayer->GetFeatureCount() > 0)
+					  {
+						  double Length = 0;
+						  for (unsigned int k = 0; k < SQLLayer->GetFeatureCount(); k++)
+						  {
+							  Length = Length + SQLLayer->GetFeature(k)->GetFieldAsDouble("Length");
+						  }
+						  LIFeature->SetField(FieldNamesLTable[i].c_str(), Length);
+						  LILayer->SetFeature(LIFeature);
+					  }
+					  DataSource->ReleaseResultSet(SQLLayer);
+				  }
+				  LILayer->SyncToDisk();
+				  OGRDataSource::DestroyDataSource(DataSource);
+			  }
 		  }
 	   }
 
@@ -5314,7 +5371,6 @@ void LandProcessor::createLI()
     OGRDataSource::DestroyDataSource(LI);
 
     m_VectorFilesToRelease.push_back(m_OutputLIVectorFile);
-  }
 
 }
 
@@ -6160,19 +6216,20 @@ void LandProcessor::attributeLinearStructures(const std::string& FileName)
 
 		PlotsRing = PlotsPolygon->getExteriorRing();
 
-		OGRPoint *sPoint, *mPoint, *ePoint, *RingPoint, *PointToAdd;
+		OGRPoint *sPoint, *cPoint, *ePoint, *RingPoint, *PointToAdd;
 
 		sPoint = new OGRPoint;
-		mPoint = new OGRPoint;
+		cPoint = new OGRPoint;
 		ePoint = new OGRPoint;
 
 		int numPoints = InterLineString->getNumPoints();
 
-		InterLineString->getPoint(0, sPoint);
-		InterLineString->getPoint((int)(numPoints-1)/2, mPoint);
-		InterLineString->getPoint(numPoints-1, ePoint);
+		InterLineString->StartPoint(sPoint);
+		InterLineString->Centroid(cPoint);
+		InterLineString->EndPoint(ePoint);
 
-		std::vector <OGRPoint*> Points = {sPoint, mPoint, ePoint};
+
+		std::vector <OGRPoint*> Points = {sPoint, cPoint, ePoint};
 		std::vector <int> PointsID = {0,0,0};
 
 		PointsID.clear();
@@ -6197,7 +6254,7 @@ void LandProcessor::attributeLinearStructures(const std::string& FileName)
 		}
 
 		delete sPoint;
-		delete mPoint;
+		delete cPoint;
 		delete ePoint;
 
 		OGRLineString *NewLineString;
@@ -6350,7 +6407,120 @@ bool LandProcessor::checkGeometries(std::vector <int> GeometryTypes, int LayerIn
 //======================================================================
 
 
-bool LandProcessor::checkSRS(int LayerIndex)
+bool LandProcessor::checkRasterData(const std::string& FilePath, int BandIndex)
+{
+	mp_Dataset = (GDALDataset *) GDALOpen( FilePath.c_str(), GA_ReadOnly );
+
+	if (!checkRasterDriver() or
+			!checkRasterSRS())
+	{
+		GDALClose(mp_Dataset);
+		return false;
+	}
+	else
+	{
+		GDALClose(mp_Dataset);
+		return true;
+	}
+
+}
+
+
+//======================================================================
+//======================================================================
+
+
+void LandProcessor::checkRasterDataDetails(const std::string& FilePath, int BandIndex)
+{
+
+	mp_Dataset = (GDALDataset *) GDALOpen( FilePath.c_str(), GA_ReadOnly );
+
+	if (!checkRasterDriver())
+	{
+		std::cout << "LandProcessor::checkRasterDataDetails(): " << FilePath.c_str() << ": raster file is not in GTiff format" << std::endl;
+	}
+	else
+	{
+		if (!mp_Dataset->GetProjectionRef())
+		{
+			std::cout << "LandProcessor::checkRasterDataDetails(): " << FilePath.c_str() << ": no spatial reference information is provided for the raster file" << std::endl;
+		}
+		else
+		{
+			OGRSpatialReference RasterSRS;
+			RasterSRS.SetFromUserInput(mp_Dataset->GetProjectionRef());
+			if (!RasterSRS.GetAttrValue("AUTHORITY",1))
+			{
+				std::cout << "LandProcessor::checkRasterDataDetails(): " << FilePath.c_str() << ": no EPSG code provided for the raster data" << std::endl;
+			}
+			else
+			{
+				if(RasterSRS.GetAttrValue("AUTHORITY",1) != m_EPSGCode.substr(m_EPSGCode.find(":")+1, m_EPSGCode.length()-1))
+				{
+					std::cout << "LandProcessor::checkRasterDataDetails(): " << FilePath.c_str() << ": raster data EPSG code does not correspond to the default EPSG code" << std::endl;
+				}
+			}
+		}
+	}
+
+	GDALClose(mp_Dataset);
+
+}
+
+
+//======================================================================
+//======================================================================
+
+
+bool LandProcessor::checkRasterDriver()
+{
+
+	if (mp_Dataset->GetDriver()->GetDescription() != m_RasterDriverName)
+	{
+		return false;
+	}
+	else
+	{
+		return true;
+	}
+
+}
+
+
+//======================================================================
+//======================================================================
+
+
+bool LandProcessor::checkRasterSRS()
+{
+
+	if ((!mp_Dataset->GetProjectionRef()))
+	{
+		return false;
+	}
+	else
+	{
+		OGRSpatialReference RasterSRS;
+		RasterSRS.SetFromUserInput(mp_Dataset->GetProjectionRef());
+		if ((!RasterSRS.GetAttrValue("AUTHORITY",1)) or
+			(RasterSRS.GetAttrValue("AUTHORITY",1) != m_EPSGCode.substr(m_EPSGCode.find(":")+1, m_EPSGCode.length()-1)))
+		{
+			return false;
+		}
+		else
+		{
+			return true;
+		}
+	}
+
+}
+
+
+//======================================================================
+//======================================================================
+
+
+bool LandProcessor::checkVectorSRS(int LayerIndex)
 {
 
 	if ((!mp_DataSource->GetLayer(LayerIndex)->GetSpatialRef()) or
@@ -6376,8 +6546,8 @@ bool LandProcessor::checkVectorData(const std::string& FilePath, std::vector <in
 
 	mp_DataSource = OGRSFDriverRegistrar::Open( FilePath.c_str(), TRUE );
 
-	if (!openfluid::tools::Filesystem::isFile(FilePath.c_str()) or !checkVectorDriver() or
-			!checkSRS() or !checkGeometries(GeometryTypes))
+	if (!checkVectorDriver() or
+			!checkVectorSRS() or !checkGeometries(GeometryTypes))
 	{
 		OGRDataSource::DestroyDataSource(mp_DataSource);
 		return false;
@@ -6402,31 +6572,31 @@ void LandProcessor::checkVectorDataDetails(const std::string& FilePath, std::vec
 
 	if (!openfluid::tools::Filesystem::isFile(FilePath.c_str()))
 	{
-		std::cout << "LandProcessor::attributeLinearStructures(): " << FilePath.c_str() << ": no such file in the input vector directory" << std::endl;
+		std::cout << "LandProcessor::checkVectorDataDetails(): " << FilePath.c_str() << ": no such file in the input vector directory" << std::endl;
 	}
 	else
 	{
 		if (mp_DataSource->GetDriver()->GetName() != m_VectorDriverName)
 		{
-			std::cout << "LandProcessor::attributeLinearStructures(): " << FilePath.c_str() << ": vector file is not in ESRI Shapefile format" << std::endl;
+			std::cout << "LandProcessor::checkVectorDataDetails(): " << FilePath.c_str() << ": vector file is not in ESRI Shapefile format" << std::endl;
 		}
 		else
 		{
 	        if (!mp_DataSource->GetLayer(LayerIndex)->GetSpatialRef())
 	        {
-	          std::cout << "LandProcessor::attributeLinearStructures(): " << FilePath.c_str() << ": no spatial reference information is provided for the vector file" << std::endl;
+	          std::cout << "LandProcessor::checkVectorDataDetails(): " << FilePath.c_str() << ": no spatial reference information is provided for the vector file" << std::endl;
 	        }
 	        else
 	        {
 	        	if (!mp_DataSource->GetLayer(LayerIndex)->GetSpatialRef()->GetAttrValue("AUTHORITY",1))
 	        	{
-	        		std::cout << "LandProcessor::attributeLinearStructures(): " << FilePath.c_str() << ": no EPSG code provided for the vector data" << std::endl;
+	        		std::cout << "LandProcessor::checkVectorDataDetails(): " << FilePath.c_str() << ": no EPSG code provided for the vector data" << std::endl;
 	        	}
 	        	else
 	        	{
 	        		if (mp_DataSource->GetLayer(LayerIndex)->GetSpatialRef()->GetAttrValue("AUTHORITY",1) != m_EPSGCode.substr(m_EPSGCode.find(":")+1, m_EPSGCode.length()-1))
 	        		{
-	        			std::cout << "LandProcessor::attributeLinearStructures(): " << FilePath.c_str() << ": vector data EPSG code does not correspond to the default EPSG code" << std::endl;
+	        			std::cout << "LandProcessor::checkVectorDataDetails(): " << FilePath.c_str() << ": vector data EPSG code does not correspond to the default EPSG code" << std::endl;
 	        		}
 	        		else
 	        		{
@@ -6437,15 +6607,15 @@ void LandProcessor::checkVectorDataDetails(const std::string& FilePath, std::vec
 	        			{
 	        				if (!mp_Feature->GetGeometryRef()->IsValid())
 	        				{
-	        					std::cout << "The feature with FID " << mp_Feature->GetFID() << " of the vector file " << FilePath.c_str() << " has invalid geometry" << std::endl;
+	        					std::cout << "LandProcessor::checkVectorDataDetails(): " << FilePath.c_str() << ": feature " << mp_Feature->GetFID() << " has invalid geometry" << std::endl;
 	        				}
 	        				if (!mp_Feature->GetGeometryRef()->IsSimple())
 	        				{
-	        					std::cout << "The feature with FID " << mp_Feature->GetFID() << " of the vector file " << FilePath.c_str() << " has geometry that is not simple" << std::endl;
+	        					std::cout << "LandProcessor::checkVectorDataDetails(): " << FilePath.c_str() << ": feature " << mp_Feature->GetFID() << " has geometry that is not simple" << std::endl;
 	        				}
 	        				if (mp_Feature->GetGeometryRef()->IsEmpty())
 	        				{
-	        					std::cout << "The feature with FID " << mp_Feature->GetFID() << " of the vector file " << FilePath.c_str() << " has empty geometry" << std::endl;
+	        					std::cout << "LandProcessor::checkVectorDataDetails(): " << FilePath.c_str() << ": feature " << mp_Feature->GetFID() << " has empty geometry" << std::endl;
 	        				}
 	        			}
 
@@ -6455,7 +6625,7 @@ void LandProcessor::checkVectorDataDetails(const std::string& FilePath, std::vec
 	        			{
 	        				if (std::find(GeometryTypes.begin(), GeometryTypes.end(), (int) mp_Feature->GetGeometryRef()->getGeometryType()) == GeometryTypes.end())
 	        				{
-	        					std::cout << "The feature with FID " << mp_Feature->GetFID() << " of the vector file " << FilePath.c_str() << " has geometry that is not of LINESTRING type" << std::endl;
+	        					std::cout <<  "LandProcessor::checkVectorDataDetails(): " << FilePath.c_str() << ": feature " << mp_Feature->GetFID() << " has geometry that is not of the required type" << std::endl;
 	        				}
 	        			}
 	        		}
@@ -6592,7 +6762,26 @@ void LandProcessor::createUniqueID(OGRDataSource *DataSource, int LayerIndex)
 // =====================================================================
 
 
-int LandProcessor::extractFromRasterToPoint(GDALDataset *Dataset, unsigned int RasterBandIndex)
+bool LandProcessor::doesDataExist(const std::string& FilePath)
+{
+
+	if (!openfluid::tools::Filesystem::isFile(FilePath.c_str()))
+	{
+		return false;
+	}
+	else
+	{
+		return true;
+	}
+
+}
+
+
+// =====================================================================
+// =====================================================================
+
+
+int LandProcessor::extractIntegerFromRasterToPoint(GDALDataset *Dataset, unsigned int RasterBandIndex)
 {
 
 	int Value;
@@ -6604,6 +6793,31 @@ int LandProcessor::extractFromRasterToPoint(GDALDataset *Dataset, unsigned int R
 			1, 1,
 			ScanValue,
 			1, 1, GDT_Int32,
+			0, 0);
+
+	Value = ScanValue[0];
+	CPLFree(ScanValue);
+	return Value;
+
+}
+
+
+//======================================================================
+//======================================================================
+
+
+float LandProcessor::extractDoubleFromRasterToPoint(GDALDataset *Dataset, unsigned int RasterBandIndex)
+{
+
+	float Value;
+	float *ScanValue = (float*) CPLMalloc(sizeof(float));
+
+	GDALRasterIO(getRasterBand(Dataset, RasterBandIndex), GF_Read,
+			calculateOffset(getCoordinatesOfPoint().first,getCoordinatesOfPoint().second).first,
+			calculateOffset(getCoordinatesOfPoint().first,getCoordinatesOfPoint().second).second,
+			1, 1,
+			ScanValue,
+			1, 1, GDT_Float32,
 			0, 0);
 
 	Value = ScanValue[0];
@@ -6799,7 +7013,4 @@ void LandProcessor::setLandUseFieldName(const std::string& LandUseFieldName)
 	m_LandUseFieldName = LandUseFieldName;
 }
 
-
-// =====================================================================
-// =====================================================================
 

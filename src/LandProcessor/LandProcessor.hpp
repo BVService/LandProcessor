@@ -67,7 +67,7 @@ class LandProcessor
 
     const std::string m_InputRiversVectorFile = "coursdeau.shp";
 
-    const std::string m_InputThalwegsVectorFile = "talweg.shp";
+    const std::string m_InputThalwegsVectorFile = "talwegs.shp";
 
     const std::string m_InputBenchesVectorFile = "talus.shp";
 
@@ -102,6 +102,8 @@ class LandProcessor
 
 
     const std::string m_OutputDEMFile = "dem.tif";
+
+    const std::string m_OutputProblemAreasFile = "areas.tif";
 
     const std::string m_OutputPlotsRasterFile = "plots.tif";
 
@@ -158,6 +160,8 @@ class LandProcessor
 
     GDALDriver *mp_RasterDriver = nullptr;
 
+    GDALDataset *mp_Dataset = nullptr;
+
     double m_GeoTransformVal[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
     unsigned int m_MinEntSize = 250;
@@ -208,19 +212,31 @@ class LandProcessor
 
     bool checkVectorData(const std::string& FilePath, std::vector <int> GeometryTypes, int LayerIndex = 0);
 
+    bool checkRasterData(const std::string& FilePath, int BandIndex = 1);
+
     void checkVectorDataDetails(const std::string& FilePath, std::vector <int> GeometryTypes, int LayerIndex = 0);
+
+    void checkRasterDataDetails(const std::string& FilePath, int BandIndex = 1);
 
     bool checkVectorDriver();
 
-    bool checkSRS(int LayerIndex = 0);
+    bool checkRasterDriver();
+
+    bool checkVectorSRS(int LayerIndex = 0);
+
+    bool checkRasterSRS();
 
     bool checkGeometries(std::vector <int> GeometryTypes, int LayerIndex = 0);
 
     void copyVectorFile(const std::string& FromPath, const std::string& ToPath, const std::string& OriginalFileName, const std::string& NewFileName = "");
 
+    bool doesDataExist(const std::string& FilePath);
+
     void attributeLinearStructures(const std::string& FileName);
 
-    int extractFromRasterToPoint(GDALDataset *Dataset, unsigned int RasterBandIndex);
+    int extractIntegerFromRasterToPoint(GDALDataset *Dataset, unsigned int RasterBandIndex);
+
+    float extractDoubleFromRasterToPoint(GDALDataset *Dataset, unsigned int RasterBandIndex);
 
     void createField(OGRLayer *LayerName, const std::string& FieldName, OGRFieldType FieldType);
 

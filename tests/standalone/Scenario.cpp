@@ -54,6 +54,7 @@ int main(int argc, char *argv[])
     LP.setRSParameters();
     LP.setLIParameters();
     LP.releaseFiles();
+
   }
   catch (std::exception& E)
   {
