@@ -43,11 +43,4 @@ TARGET_LINK_LIBRARIES(standalone-FullWithParam bvservice-landprocessor
                                       ${QT_QTCORE_LIBRARIES})
 ADD_TEST(NAME standalone-FullWithParam COMMAND standalone-FullWithParam)
 
-ADD_EXECUTABLE(standalone-Network Network.cpp)
-TARGET_LINK_LIBRARIES(standalone-Network bvservice-landprocessor
-                                      ${OpenFLUID_LIBRARIES}
-                                      ${GDAL_LIBRARIES}
-                                      ${QT_QTCORE_LIBRARIES})
-ADD_TEST(NAME standalone-Network COMMAND standalone-Network)
-
 SET_PROPERTY(TEST standalone-Scenario APPEND PROPERTY DEPENDS standalone-Preparation)
