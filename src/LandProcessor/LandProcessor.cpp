@@ -7008,9 +7008,8 @@ void LandProcessor::repackLayer(OGRDataSource* DataSource)
 
 void LandProcessor::setLandUseFieldName(const std::string& LandUseFieldName)
 {
-	VERBOSE_MESSAGE(1,"Entering " << __PRETTY_FUNCTION__);
+  VERBOSE_MESSAGE(1,"Entering " << __PRETTY_FUNCTION__);
+  VERBOSE_MESSAGE(1,"Land use filed name set to \"" << LandUseFieldName << "\"");
 
-	m_LandUseFieldName = LandUseFieldName;
+  m_LandUseFieldName = LandUseFieldName;
 }
-
-

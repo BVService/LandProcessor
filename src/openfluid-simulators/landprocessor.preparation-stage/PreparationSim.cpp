@@ -33,7 +33,7 @@ class PreparationSimulator : public openfluid::ware::PluggableSimulator
 
   private:
 
-	std::string m_LandUseFieldName;
+	  std::string m_LandUseFieldName;
     std::string GISdataInputDir = "gisdata-input";
     std::string GISdataOutputDir = "gisdata-output";
     std::string GISdataReleaseDir = "gisdata-release";
@@ -66,7 +66,13 @@ class PreparationSimulator : public openfluid::ware::PluggableSimulator
 
     void initParams(const openfluid::ware::WareParams_t& Params)
     {
-    	 OPENFLUID_GetSimulatorParameter(Params, "LandUseFieldName", m_LandUseFieldName);
+       std::string TmpStr;
+
+       OPENFLUID_GetSimulatorParameter(Params, "LandUseFieldName", TmpStr);
+
+       // use parameter for land use field name only if not en empty string
+       if (!TmpStr.empty())
+         m_LandUseFieldName = TmpStr;
     }
 
 
