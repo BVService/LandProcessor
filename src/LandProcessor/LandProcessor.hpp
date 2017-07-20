@@ -23,7 +23,6 @@
   @author Jean-Christophe FABRE <jean-christophe.fabre@inra.fr>
 */
 
-
 #ifndef __LANDPROCESSOR_HPP__
 #define __LANDPROCESSOR_HPP__
 
@@ -197,10 +196,6 @@ class LandProcessor
     void releaseVectorFile(const std::string& Filename);
 
     void releaseRasterFile(const std::string& Filename) const;
-
-    GEOSGeom GDALtoGEOSConvertion(OGRGeometry *OGRGeometry);
-
-    OGRGeometry* GEOStoGDALConvertion(GEOSGeom GEOSGeometry);
 
     std::vector<int> findOverlapsForGeometry(int FID, OGRLayer *Layer);
 

@@ -55,6 +55,7 @@
 #include <openfluid/utils/GrassGISProxy.hpp>
 #include <openfluid/base/Environment.hpp>
 #include <openfluid/tools/DataHelpers.hpp>
+#include <openfluid/landr/GEOSHelpers.hpp>
 
 #include <LandProcessor/LandProcessor.hpp>
 #include <LandProcessor/Helpers.hpp>
@@ -311,11 +312,11 @@ void LandProcessor::preprocessVectorData()
 				OGRGeometry *Geom;
 				Geom = Feature->GetGeometryRef();
 				geos::geom::Geometry *GeomToCorrectGEOS;
-				GeomToCorrectGEOS = (geos::geom::Geometry*) GDALtoGEOSConvertion(GeomToCorrect);
+				GeomToCorrectGEOS = (geos::geom::Geometry*) openfluid::landr::convertOGRGeometryToGEOS(GeomToCorrect);
 				geos::geom::Geometry *GeomGEOS;
-				GeomGEOS = (geos::geom::Geometry*) GDALtoGEOSConvertion(Geom);
+				GeomGEOS = (geos::geom::Geometry*) openfluid::landr::convertOGRGeometryToGEOS(Geom);
 				OGRGeometry *NewGeometry;
-				NewGeometry = GEOStoGDALConvertion((GEOSGeom) (GeomToCorrectGEOS->difference(GeomGEOS)));
+				NewGeometry = openfluid::landr::convertGEOSGeometryToOGR((GEOSGeom) (GeomToCorrectGEOS->difference(GeomGEOS)));
 				FeatureToCorrect->SetGeometry(NewGeometry);
 				PlotsLayer->SetFeature(FeatureToCorrect);
 				PlotsLayer->SyncToDisk();
@@ -554,7 +555,7 @@ void LandProcessor::preprocessRasterData()
 
   DEM = (GDALDataset *) GDALOpen( getInputRasterPath(m_InputDEMFile).c_str(), GA_ReadOnly );
 
-  mp_RasterDriver = DEM->GetDriver();
+  mp_RasterDriver = GetGDALDriverManager()->GetDriverByName(m_RasterDriverName.c_str());
 
   getGeoTransform(DEM);
 
@@ -4887,9 +4888,6 @@ void LandProcessor::createRS()
   // Variables that are used in this block
   // =====================================================================
 
-  std::vector <std::string> FileNamesTab =
-    {m_InputDitchesVectorFile, m_InputThalwegsVectorFile, m_InputRiversVectorFile};
-
   mp_VectorDriver = OGRSFDriverRegistrar::GetRegistrar()->GetDriverByName(m_VectorDriverName.c_str());
 
   if (!openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputLinearEntitiesVectorFile)))
@@ -5183,194 +5181,196 @@ void LandProcessor::createLI()
 	  std::cout << "LandProcessor::createLI(): There are no linear structure files in the input vector directory that could be attributed. LI vector will be created without them." << std::endl;
   }
 
-	// ====================================================================
-    // Creating the LI file
-    // ====================================================================
 
-	  copyVectorFile(getOutputVectorPath(), getOutputVectorPath(), m_OutputLinearEntitiesVectorFile, m_OutputLIVectorFile);
 
-	  // ====================================================================================
-	  // Creating attributes and populating them
-	  // ====================================================================================
+  // ====================================================================
+  // Creating the LI file
+  // ====================================================================
 
-	  LI = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputLIVectorFile).c_str(), TRUE );
+  copyVectorFile(getOutputVectorPath(), getOutputVectorPath(), m_OutputLinearEntitiesVectorFile, m_OutputLIVectorFile);
 
-	  FieldNamesTable.clear();
+  // ====================================================================================
+  // Creating attributes and populating them
+  // ====================================================================================
 
-	  LILayer = LI->GetLayer(0);
-	  LILayer->ResetReading();
+  LI = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputLIVectorFile).c_str(), TRUE );
 
-	  FieldNamesTable = {"FlowDist", "Hedges", "GrassBs", "Benches", "HedgesL", "GrassBsL", "BenchesL", "SurfToLen"};
+  FieldNamesTable.clear();
 
+  LILayer = LI->GetLayer(0);
+  LILayer->ResetReading();
+
+  FieldNamesTable = {"FlowDist", "Hedges", "GrassBs", "Benches", "HedgesL", "GrassBsL", "BenchesL", "SurfToLen"};
+
+  for (unsigned int i = 0; i < FieldNamesTable.size(); i++)
+  {
+	  createField(LILayer, FieldNamesTable[i].c_str(), OFTReal);
+  }
+
+  LILayer = LI->GetLayer(0);
+  LILayer->ResetReading();
+
+  while ((LIFeature = LILayer->GetNextFeature()) != nullptr)
+  {
 	  for (unsigned int i = 0; i < FieldNamesTable.size(); i++)
 	  {
-		  createField(LILayer, FieldNamesTable[i].c_str(), OFTReal);
+		  LIFeature->SetField(FieldNamesTable[i].c_str(), 0);
+		  LILayer->SetFeature(LIFeature);
 	  }
+  }
 
+  FieldNamesTable.clear();
+  LI->SyncToDisk();
+
+  // ====================================================================
+  // Setting IDTo attribute in case when there is an RS with the same ID
+  // ====================================================================
+
+  const std::string LILayerName = getLayerNameFromFilename(m_OutputLIVectorFile);
+  const std::string RSLayerName = getLayerNameFromFilename(m_OutputRSVectorFile);
+
+  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputRSVectorFile)))
+  {
+	  DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputRSVectorFile).c_str(), TRUE );
 	  LILayer = LI->GetLayer(0);
 	  LILayer->ResetReading();
 
 	  while ((LIFeature = LILayer->GetNextFeature()) != nullptr)
 	  {
-		  for (unsigned int i = 0; i < FieldNamesTable.size(); i++)
+		  ID = LIFeature->GetFieldAsString("ID");
+		  m_SQLRequest = "SELECT ID FROM " + RSLayerName + " WHERE ID == " + m_QMark + ID + m_QMark;
+		  OGRLayer *SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
+		  if (SQLLayer->GetFeatureCount() != 0)
 		  {
-			LIFeature->SetField(FieldNamesTable[i].c_str(), 0);
-			LILayer->SetFeature(LIFeature);
+			  LIFeature->SetField("IDTo", ID.c_str());
+			  LILayer->SetFeature(LIFeature);
 		  }
+		  DataSource->ReleaseResultSet(SQLLayer);
 	  }
 
-	  FieldNamesTable.clear();
-	  LI->SyncToDisk();
+	  LILayer->SyncToDisk();
+  }
 
-    // ====================================================================
-    // Setting IDTo attribute in case when there is an RS with the same ID
-    // ====================================================================
+  // =========================================================================================
+  // Attributing linear structures and setting attributes that contain information about linear structures attributed to them
+  // =========================================================================================
 
-	  const std::string LILayerName = getLayerNameFromFilename(m_OutputLIVectorFile);
-	  const std::string RSLayerName = getLayerNameFromFilename(m_OutputRSVectorFile);
+  FieldNamesTable.clear();
+  FieldNamesLTable.clear();
 
-	  if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputRSVectorFile)))
+  FieldNamesTable = {"Hedges", "GrassBs", "Benches"};
+  FieldNamesLTable = {"HedgesL", "GrassBsL", "BenchesL"};
+
+  std::vector <int> GeometryTypes = {2,5};
+
+  for (unsigned int i = 0; i < FileNamesTable.size(); i++)
+  {
+	  if (!doesDataExist(getInputVectorPath(FileNamesTable[i]).c_str()))
 	  {
-		  DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputRSVectorFile).c_str(), TRUE );
-		  LILayer = LI->GetLayer(0);
-		  LILayer->ResetReading();
-
-		  while ((LIFeature = LILayer->GetNextFeature()) != nullptr)
-		  {
-			ID = LIFeature->GetFieldAsString("ID");
-			m_SQLRequest = "SELECT ID FROM " + RSLayerName + " WHERE ID == " + m_QMark + ID + m_QMark;
-			OGRLayer *SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
-			if (SQLLayer->GetFeatureCount() != 0)
-			{
-				LIFeature->SetField("IDTo", ID.c_str());
-				LILayer->SetFeature(LIFeature);
-			}
-			DataSource->ReleaseResultSet(SQLLayer);
-		  }
-
-		  LILayer->SyncToDisk();
-		}
-
-    // =========================================================================================
-    // Attributing linear structures and setting attributes that contain information about linear structures attributed to them
-    // =========================================================================================
-
-	  FieldNamesTable.clear();
-	  FieldNamesLTable.clear();
-
-	  FieldNamesTable = {"Hedges", "GrassBs", "Benches"};
-	  FieldNamesLTable = {"HedgesL", "GrassBsL", "BenchesL"};
-
-	  std::vector <int> GeometryTypes = {2,5};
-
-	  for (unsigned int i = 0; i < FileNamesTable.size(); i++)
+		  std::cout << "LandProcessor::createLI(): " << getInputVectorPath(FileNamesTable[i]).c_str() << ": no such file in the input vector directory" << std::endl;
+	  }
+	  else
 	  {
-		  if (!doesDataExist(getInputVectorPath(FileNamesTable[i]).c_str()))
+		  if (!checkVectorData(getInputVectorPath(FileNamesTable[i]).c_str(), GeometryTypes))
 		  {
-			  std::cout << "LandProcessor::createLI(): " << getInputVectorPath(FileNamesTable[i]).c_str() << ": no such file in the input vector directory" << std::endl;
+			  checkVectorDataDetails(getInputVectorPath(FileNamesTable[i]).c_str(), GeometryTypes);
 		  }
 		  else
 		  {
-			  if (!checkVectorData(getInputVectorPath(FileNamesTable[i]).c_str(), GeometryTypes))
+			  copyVectorFile(getInputVectorPath().c_str(), getOutputVectorPath().c_str(), FileNamesTable[i]);
+			  attributeLinearStructures(FileNamesTable[i]);
+			  DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
+			  LILayer = LI->GetLayer(0);
+			  for (unsigned int j = 0; j < LILayer->GetFeatureCount(); j++)
 			  {
-				  checkVectorDataDetails(getInputVectorPath(FileNamesTable[i]).c_str(), GeometryTypes);
-			  }
-			  else
-			  {
-				  copyVectorFile(getInputVectorPath().c_str(), getOutputVectorPath().c_str(), FileNamesTable[i]);
-				  attributeLinearStructures(FileNamesTable[i]);
-				  DataSource = OGRSFDriverRegistrar::Open( getOutputVectorPath().c_str(), TRUE );
-				  LILayer = LI->GetLayer(0);
-				  for (unsigned int j = 0; j < LILayer->GetFeatureCount(); j++)
+				  LIFeature = LILayer->GetFeature(j);
+				  m_SQLRequest = "SELECT ST_Length(ST_Intersection(geometry,(SELECT ST_Buffer(geometry,0.05) FROM " + LILayerName + " WHERE ROWID == " + std::to_string(LIFeature->GetFID()) + "))) AS Length "
+						  "FROM " + FileNamesTable[i].substr(0, FileNamesTable[i].find(".shp")) + " "
+						  "WHERE ST_Length(ST_Intersection(geometry,(SELECT ST_Buffer(geometry,0.05) FROM " + LILayerName + " WHERE ROWID == " + std::to_string(LIFeature->GetFID()) + "))) > 0.1";
+				  OGRLayer *SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
+				  if (SQLLayer->GetFeatureCount() > 0)
 				  {
-					  LIFeature = LILayer->GetFeature(j);
-					  m_SQLRequest = "SELECT ST_Length(ST_Intersection(geometry,(SELECT ST_Buffer(geometry,0.05) FROM " + LILayerName + " WHERE ROWID == " + std::to_string(LIFeature->GetFID()) + "))) AS Length "
-							  "FROM " + FileNamesTable[i].substr(0, FileNamesTable[i].find(".shp")) + " "
-							  "WHERE ST_Length(ST_Intersection(geometry,(SELECT ST_Buffer(geometry,0.05) FROM " + LILayerName + " WHERE ROWID == " + std::to_string(LIFeature->GetFID()) + "))) > 0.1";
-					  OGRLayer *SQLLayer = DataSource->ExecuteSQL(m_SQLRequest.c_str(), nullptr, m_SQLDialect.c_str());
-					  if (SQLLayer->GetFeatureCount() > 0)
+					  double Length = 0;
+					  for (unsigned int k = 0; k < SQLLayer->GetFeatureCount(); k++)
 					  {
-						  double Length = 0;
-						  for (unsigned int k = 0; k < SQLLayer->GetFeatureCount(); k++)
-						  {
-							  Length = Length + SQLLayer->GetFeature(k)->GetFieldAsDouble("Length");
-						  }
-						  LIFeature->SetField(FieldNamesLTable[i].c_str(), Length);
-						  LILayer->SetFeature(LIFeature);
+						  Length = Length + SQLLayer->GetFeature(k)->GetFieldAsDouble("Length");
 					  }
-					  DataSource->ReleaseResultSet(SQLLayer);
+					  LIFeature->SetField(FieldNamesLTable[i].c_str(), Length);
+					  LILayer->SetFeature(LIFeature);
 				  }
-				  LILayer->SyncToDisk();
-				  OGRDataSource::DestroyDataSource(DataSource);
+				  DataSource->ReleaseResultSet(SQLLayer);
 			  }
-		  }
-	   }
-
-	  LILayer = LI->GetLayer(0);
-	  LILayer->ResetReading();
-
-	  while ((LIFeature = LILayer->GetNextFeature()) != nullptr)
-	  {
-		  for (unsigned int i = 0; i < FieldNamesLTable.size(); i++)
-		  {
-			  double Length = LIFeature->GetFieldAsDouble("Length");
-			  double LSLength = LIFeature->GetFieldAsDouble(FieldNamesLTable[i].c_str());
-			  if (LSLength > Length)
-			  {
-				  LIFeature->SetField(FieldNamesLTable[i].c_str(), Length);
-				  LILayer->SetFeature(LIFeature);
-			  }
+			  LILayer->SyncToDisk();
+			  OGRDataSource::DestroyDataSource(DataSource);
 		  }
 	  }
+  }
 
-    LILayer->SyncToDisk();
-    LILayer = LI->GetLayer(0);
-    LILayer->ResetReading();
+  LILayer = LI->GetLayer(0);
+  LILayer->ResetReading();
 
-    while ((LIFeature = LILayer->GetNextFeature()) != nullptr)
-    {
-      for (unsigned int i = 0; i < FieldNamesLTable.size(); i++)
+  while ((LIFeature = LILayer->GetNextFeature()) != nullptr)
+  {
+	  for (unsigned int i = 0; i < FieldNamesLTable.size(); i++)
+	  {
+		  double Length = LIFeature->GetFieldAsDouble("Length");
+		  double LSLength = LIFeature->GetFieldAsDouble(FieldNamesLTable[i].c_str());
+		  if (LSLength > Length)
+		  {
+			  LIFeature->SetField(FieldNamesLTable[i].c_str(), Length);
+			  LILayer->SetFeature(LIFeature);
+		  }
+	  }
+  }
+
+  LILayer->SyncToDisk();
+  LILayer = LI->GetLayer(0);
+  LILayer->ResetReading();
+
+  while ((LIFeature = LILayer->GetNextFeature()) != nullptr)
+  {
+	  for (unsigned int i = 0; i < FieldNamesLTable.size(); i++)
       {
-        double Length = LIFeature->GetFieldAsDouble("Length");
-        double LSLength = LIFeature->GetFieldAsDouble(FieldNamesLTable[i].c_str());
-        if (LSLength != Length and LSLength < 0.05*6)
-        {
-          LIFeature->SetField(FieldNamesLTable[i].c_str(), 0);
-          LILayer->SetFeature(LIFeature);
-        }
+		  double Length = LIFeature->GetFieldAsDouble("Length");
+		  double LSLength = LIFeature->GetFieldAsDouble(FieldNamesLTable[i].c_str());
+		  if (LSLength != Length and LSLength < 0.05*6)
+		  {
+			  LIFeature->SetField(FieldNamesLTable[i].c_str(), 0);
+			  LILayer->SetFeature(LIFeature);
+		  }
       }
-    }
+  }
 
-    LILayer->SyncToDisk();
+  LILayer->SyncToDisk();
 
-    // ===========================================================================================
-    // Setting attributes to contain the ration of linear structure length to actual entity length
-    // ===========================================================================================
+  // ===========================================================================================
+  // Setting attributes to contain the ration of linear structure length to actual entity length
+  // ===========================================================================================
 
-    LILayer = LI->GetLayer(0);
-    LILayer->ResetReading();
+  LILayer = LI->GetLayer(0);
+  LILayer->ResetReading();
 
-    while ((LIFeature = LILayer->GetNextFeature()) != nullptr)
-    {
-      for (unsigned int i = 0; i < FieldNamesLTable.size(); i++)
-      {
-        double Length = LIFeature->GetFieldAsDouble("Length");
-        double LSLength = LIFeature->GetFieldAsDouble(FieldNamesLTable[i].c_str());
-        LIFeature->SetField(FieldNamesTable[i].c_str(), LSLength/Length);
-        LILayer->SetFeature(LIFeature);
-      }
-      LILayer->SyncToDisk();
-    }
+  while ((LIFeature = LILayer->GetNextFeature()) != nullptr)
+  {
+	  for (unsigned int i = 0; i < FieldNamesLTable.size(); i++)
+	  {
+		  double Length = LIFeature->GetFieldAsDouble("Length");
+		  double LSLength = LIFeature->GetFieldAsDouble(FieldNamesLTable[i].c_str());
+		  LIFeature->SetField(FieldNamesTable[i].c_str(), LSLength/Length);
+		  LILayer->SetFeature(LIFeature);
+	  }
+	  LILayer->SyncToDisk();
+  }
 
-    FileNamesTable.clear();
-    FieldNamesTable.clear();
-    FieldNamesLTable.clear();
+  FileNamesTable.clear();
+  FieldNamesTable.clear();
+  FieldNamesLTable.clear();
 
-    LI->SyncToDisk();
+  LI->SyncToDisk();
 
-    OGRDataSource::DestroyDataSource(LI);
+  OGRDataSource::DestroyDataSource(LI);
 
-    m_VectorFilesToRelease.push_back(m_OutputLIVectorFile);
+  m_VectorFilesToRelease.push_back(m_OutputLIVectorFile);
 
 }
 
@@ -6134,7 +6134,7 @@ void LandProcessor::attributeLinearStructures(const std::string& FileName)
 				if (NewGeometry->getGeometryType() == 2)
 				{
 					NewFeature = OGRFeature::CreateFeature(InterLayer->GetLayerDefn());
-					NewFeature->SetField(m_IDFieldName.c_str(), InterLayer->GetFeatureCount());
+					NewFeature->SetField(m_IDFieldName.c_str(), InterLayer->GetFeatureCount()+1);
 					NewFeature->SetField("IDLS", LSFeature->GetFieldAsInteger(m_IDFieldName.c_str()));
 					NewFeature->SetField("FIDPlot", (int) PlotsFeature->GetFID());
 					NewFeature->SetGeometry(NewGeometry);
@@ -6147,7 +6147,7 @@ void LandProcessor::attributeLinearStructures(const std::string& FileName)
 					for (unsigned int i = 0; i < MLS->getNumGeometries(); i++)
 					{
 						NewFeature = OGRFeature::CreateFeature(InterLayer->GetLayerDefn());
-						NewFeature->SetField(m_IDFieldName.c_str(), InterLayer->GetFeatureCount());
+						NewFeature->SetField(m_IDFieldName.c_str(), InterLayer->GetFeatureCount()+1);
 						NewFeature->SetField("IDLS", LSFeature->GetFieldAsInteger(m_IDFieldName.c_str()));
 						NewFeature->SetField("FIDPlot", (int) PlotsFeature->GetFID());
 						NewFeature->SetGeometry(MLS->getGeometryRef(i));
@@ -6163,7 +6163,7 @@ void LandProcessor::attributeLinearStructures(const std::string& FileName)
 						if (GC->getGeometryRef(i)->getGeometryType() == 2)
 						{
 							NewFeature = OGRFeature::CreateFeature(InterLayer->GetLayerDefn());
-							NewFeature->SetField(m_IDFieldName.c_str(), InterLayer->GetFeatureCount());
+							NewFeature->SetField(m_IDFieldName.c_str(), InterLayer->GetFeatureCount()+1);
 							NewFeature->SetField("IDLS", LSFeature->GetFieldAsInteger(m_IDFieldName.c_str()));
 							NewFeature->SetField("FIDPlot", (int) PlotsFeature->GetFID());
 							NewFeature->SetGeometry(GC->getGeometryRef(i));
@@ -6176,7 +6176,7 @@ void LandProcessor::attributeLinearStructures(const std::string& FileName)
 							for (unsigned int j = 0; j < MLS->getNumGeometries(); j++)
 							{
 								NewFeature = OGRFeature::CreateFeature(InterLayer->GetLayerDefn());
-								NewFeature->SetField(m_IDFieldName.c_str(), InterLayer->GetFeatureCount());
+								NewFeature->SetField(m_IDFieldName.c_str(), InterLayer->GetFeatureCount()+1);
 								NewFeature->SetField("IDLS", LSFeature->GetFieldAsInteger(m_IDFieldName.c_str()));
 								NewFeature->SetField("FIDPlot", (int) PlotsFeature->GetFID());
 								NewFeature->SetGeometry(MLS->getGeometryRef(j));
@@ -6896,46 +6896,6 @@ std::vector<int> LandProcessor::findDuplicatesForGeometry(int FID, OGRLayer *Lay
 // =====================================================================
 
 
-GEOSGeom LandProcessor::GDALtoGEOSConvertion(OGRGeometry *GeometryOGR)
-{
-
-	GEOSGeom GeometryGEOS;
-
-	GEOSContextHandle_HS *ContextHandle = OGRGeometry::createGEOSContext();
-
-	GeometryGEOS = GeometryOGR->exportToGEOS(ContextHandle);
-
-	OGRGeometry::freeGEOSContext(ContextHandle);
-
-	return GeometryGEOS;
-
-}
-
-
-// =====================================================================
-// =====================================================================
-
-
-OGRGeometry* LandProcessor::GEOStoGDALConvertion(GEOSGeom GeometryGEOS)
-{
-
-	OGRGeometry* GeometryOGR;
-
-	GEOSContextHandle_HS *ContextHandle = OGRGeometry::createGEOSContext();
-
-	GeometryOGR = OGRGeometryFactory::createFromGEOS(ContextHandle,GeometryGEOS);
-
-	OGRGeometry::freeGEOSContext(ContextHandle);
-
-	return GeometryOGR;
-
-}
-
-
-// =====================================================================
-// =====================================================================
-
-
 void LandProcessor::getCentroidPoint(OGRGeometry *Geometry)
 {
 
@@ -7008,8 +6968,8 @@ void LandProcessor::repackLayer(OGRDataSource* DataSource)
 
 void LandProcessor::setLandUseFieldName(const std::string& LandUseFieldName)
 {
-  VERBOSE_MESSAGE(1,"Entering " << __PRETTY_FUNCTION__);
-  VERBOSE_MESSAGE(1,"Land use filed name set to \"" << LandUseFieldName << "\"");
+	VERBOSE_MESSAGE(1,"Entering " << __PRETTY_FUNCTION__);
+	VERBOSE_MESSAGE(1,"Land use filed name set to \"" << LandUseFieldName << "\"");
 
-  m_LandUseFieldName = LandUseFieldName;
+	m_LandUseFieldName = LandUseFieldName;
 }

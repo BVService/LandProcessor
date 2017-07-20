@@ -70,7 +70,7 @@ class PreparationSimulator : public openfluid::ware::PluggableSimulator
 
        OPENFLUID_GetSimulatorParameter(Params, "LandUseFieldName", TmpStr);
 
-       // use parameter for land use field name only if not en empty string
+       // use parameter for land use field name only if not an empty string
        if (!TmpStr.empty())
          m_LandUseFieldName = TmpStr;
     }
