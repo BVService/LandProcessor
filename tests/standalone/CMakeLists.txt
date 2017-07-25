@@ -36,11 +36,13 @@ TARGET_LINK_LIBRARIES(standalone-Scenario bvservice-landprocessor
                                           ${QT_QTCORE_LIBRARIES})
 ADD_TEST(NAME standalone-Scenario COMMAND standalone-Scenario)
 
+
 ADD_EXECUTABLE(standalone-FullWithParam FullWithParam.cpp)
 TARGET_LINK_LIBRARIES(standalone-FullWithParam bvservice-landprocessor
                                       ${OpenFLUID_LIBRARIES}
                                       ${GDAL_LIBRARIES}
                                       ${QT_QTCORE_LIBRARIES})
 ADD_TEST(NAME standalone-FullWithParam COMMAND standalone-FullWithParam)
+
 
 SET_PROPERTY(TEST standalone-Scenario APPEND PROPERTY DEPENDS standalone-Preparation)

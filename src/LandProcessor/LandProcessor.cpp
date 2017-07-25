@@ -315,9 +315,33 @@ void LandProcessor::preprocessVectorData()
 				GeomToCorrectGEOS = (geos::geom::Geometry*) openfluid::landr::convertOGRGeometryToGEOS(GeomToCorrect);
 				geos::geom::Geometry *GeomGEOS;
 				GeomGEOS = (geos::geom::Geometry*) openfluid::landr::convertOGRGeometryToGEOS(Geom);
-				OGRGeometry *NewGeometry;
+				OGRGeometry *NewGeometry, *CleanNewGeometry = OGRGeometryFactory::createGeometry(wkbMultiPolygon);
 				NewGeometry = openfluid::landr::convertGEOSGeometryToOGR((GEOSGeom) (GeomToCorrectGEOS->difference(GeomGEOS)));
-				FeatureToCorrect->SetGeometry(NewGeometry);
+				if (NewGeometry->getGeometryType() != 3 and NewGeometry->getGeometryType() != 6)
+				{
+					if(NewGeometry->getGeometryType() == 7)
+					{
+						for (unsigned int k = 0; k < ((OGRGeometryCollection *) NewGeometry)->getNumGeometries(); k++)
+						{
+							if (((OGRGeometryCollection *) NewGeometry)->getGeometryRef(k)->getGeometryType() == 3)
+							{
+								if (CleanNewGeometry->IsEmpty())
+								{
+									CleanNewGeometry = ((OGRGeometryCollection *) NewGeometry)->getGeometryRef(k);
+								}
+								else
+								{
+									((OGRMultiPolygon *) CleanNewGeometry)->addGeometryDirectly(((OGRGeometryCollection *) NewGeometry)->getGeometryRef(k));
+								}
+							}
+						}
+					}
+					FeatureToCorrect->SetGeometry(CleanNewGeometry);
+				}
+				else
+				{
+					FeatureToCorrect->SetGeometry(NewGeometry);
+				}
 				PlotsLayer->SetFeature(FeatureToCorrect);
 				PlotsLayer->SyncToDisk();
 			}
@@ -452,7 +476,7 @@ void LandProcessor::preprocessVectorData()
 
 	createUniqueID(Plots);
 
-  // =====================================================================
+	// =====================================================================
   // Removing attributes that will not be used in the processing
   // =====================================================================
 
@@ -481,7 +505,6 @@ void LandProcessor::preprocessVectorData()
 	FieldNamesTable.clear();
 
 	OGRDataSource::DestroyDataSource(Plots);
-
 }
 
 
@@ -554,33 +577,26 @@ void LandProcessor::preprocessRasterData()
   // ======================================================================================
 
   DEM = (GDALDataset *) GDALOpen( getInputRasterPath(m_InputDEMFile).c_str(), GA_ReadOnly );
-
   mp_RasterDriver = GetGDALDriverManager()->GetDriverByName(m_RasterDriverName.c_str());
-
   getGeoTransform(DEM);
 
   GDALClose( DEM );
 
   PlotsV = OGRSFDriverRegistrar::Open( getOutputVectorPath(m_OutputPlotsVectorFile).c_str(), TRUE );
-
   PlotsVLayer = PlotsV->GetLayer(0);
-
   mp_SRS = PlotsVLayer->GetSpatialRef();
 
-  UnionGeometry = OGRGeometryFactory::createGeometry(wkbPolygon);
+  UnionGeometry = OGRGeometryFactory::createGeometry(wkbMultiPolygon);
 
   PlotsVLayer->ResetReading();
-
   PlotsVFeature = nullptr;
 
   while ((PlotsVFeature = PlotsVLayer->GetNextFeature()) != nullptr)
   {
-	OGRGeometry* PlotsVGeometry = PlotsVFeature->GetGeometryRef();
-    UnionGeometry = UnionGeometry->Union(PlotsVGeometry);
+	  ((OGRMultiPolygon *) UnionGeometry)->addGeometryDirectly(PlotsVFeature->GetGeometryRef());
   }
 
   Envelope = new OGREnvelope();
-
   UnionGeometry->Buffer(m_GeoTransformVal[1])->getEnvelope(Envelope);
 
   // =====================================================================
@@ -663,7 +679,7 @@ void LandProcessor::preprocessRasterData()
 
   if (GRASS.runJob() != 0)
   {
-    throw std::runtime_error("LandProcessor::preprocessRasterData() : unable to run GRASS job (see file " + m_TmpPath + "/processrasterdata.err)");
+	  throw std::runtime_error("LandProcessor::preprocessRasterData() : unable to run GRASS job (see file " + m_TmpPath + "/processrasterdata.err)");
   }
 
   GDALDataset *Areas = (GDALDataset *) GDALOpen( getOutputRasterPath(m_OutputProblemAreasFile).c_str(), GA_ReadOnly );
@@ -681,7 +697,7 @@ void LandProcessor::preprocessRasterData()
   {
 	  if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputProblemAreasFile)))
 	  {
-	    mp_RasterDriver->Delete(getOutputRasterPath(m_OutputProblemAreasFile).c_str());
+		  mp_RasterDriver->Delete(getOutputRasterPath(m_OutputProblemAreasFile).c_str());
 	  }
 
 	  GRASS.appendTask("g.remove", {{"type",QString::fromStdString("raster")},
@@ -704,7 +720,7 @@ void LandProcessor::preprocessRasterData()
 
 	  if (GRASS.runJob() != 0)
 	  {
-	    throw std::runtime_error("LandProcessor::preprocessRasterData() : unable to run GRASS job (see file " + m_TmpPath + "/processrasterdata.err)");
+		  throw std::runtime_error("LandProcessor::preprocessRasterData() : unable to run GRASS job (see file " + m_TmpPath + "/processrasterdata.err)");
 	  }
 
 	  Areas = (GDALDataset *) GDALOpen( getOutputRasterPath(m_OutputProblemAreasFile).c_str(), GA_ReadOnly );
@@ -720,7 +736,7 @@ void LandProcessor::preprocessRasterData()
 	  {
 		  break;
 	  }
-}
+  }
 
   GRASS.appendTask("r.slope.aspect", {{"elevation", QString::fromStdString("demclean")},
                                       {"slope", QString::fromStdString("slope")}},
@@ -733,7 +749,7 @@ void LandProcessor::preprocessRasterData()
 
   if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputDEMFile)))
   {
-    mp_RasterDriver->Delete(getOutputRasterPath(m_OutputDEMFile).c_str());
+	  mp_RasterDriver->Delete(getOutputRasterPath(m_OutputDEMFile).c_str());
   }
 
   GRASS.appendTask("r.out.gdal", {{"input",QString::fromStdString("demclean")},
@@ -743,7 +759,7 @@ void LandProcessor::preprocessRasterData()
 
   if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputSlopeRasterFile)))
   {
-    mp_RasterDriver->Delete(getOutputRasterPath(m_OutputSlopeRasterFile).c_str());
+	  mp_RasterDriver->Delete(getOutputRasterPath(m_OutputSlopeRasterFile).c_str());
   }
 
   GRASS.appendTask("r.out.gdal", {{"input",QString::fromStdString("slope")},
@@ -753,7 +769,7 @@ void LandProcessor::preprocessRasterData()
 
   if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputDrainageRasterFile)))
   {
-    mp_RasterDriver->Delete(getOutputRasterPath(m_OutputDrainageRasterFile).c_str());
+	  mp_RasterDriver->Delete(getOutputRasterPath(m_OutputDrainageRasterFile).c_str());
   }
 
   GRASS.appendTask("r.out.gdal", {{"input",QString::fromStdString("drainageraster")},
@@ -763,7 +779,7 @@ void LandProcessor::preprocessRasterData()
 
   if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputPlotsRasterFile)))
   {
-    mp_RasterDriver->Delete(getOutputRasterPath(m_OutputPlotsRasterFile).c_str());
+	  mp_RasterDriver->Delete(getOutputRasterPath(m_OutputPlotsRasterFile).c_str());
   }
 
   GRASS.appendTask("r.out.gdal", {{"input", QString::fromStdString("plotsraster")},
@@ -771,11 +787,11 @@ void LandProcessor::preprocessRasterData()
                                   {"format", QString::fromStdString("GTiff")},
                                   {"type", QString::fromStdString("Int16")},
                                   {"nodata", QString::fromStdString("-9999")}},
-                   {"--o"});
+                   {"-f"});
 
   if (GRASS.runJob() != 0)
   {
-    throw std::runtime_error("LandProcessor::preprocessRasterData() : unable to run GRASS job (see file " + m_TmpPath + "/processrasterdata.err)");
+	  throw std::runtime_error("LandProcessor::preprocessRasterData() : unable to run GRASS job (see file " + m_TmpPath + "/processrasterdata.err)");
   }
 
   OGRDataSource::DestroyDataSource(PlotsV);
@@ -790,7 +806,7 @@ void LandProcessor::preprocessRasterData()
 
   if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputIDRasterFile)))
   {
-    mp_RasterDriver->Delete(getOutputRasterPath(m_OutputIDRasterFile).c_str());
+	  mp_RasterDriver->Delete(getOutputRasterPath(m_OutputIDRasterFile).c_str());
   }
 
   RasterID = mp_RasterDriver->Create( getOutputRasterPath(m_OutputIDRasterFile).c_str(), DEM->GetRasterXSize(), DEM->GetRasterYSize(), 1, GDT_Int32, nullptr );
@@ -800,18 +816,18 @@ void LandProcessor::preprocessRasterData()
 
   for (unsigned int i = 0; i < RasterID->GetRasterYSize(); i++)
   {
-    for (unsigned int j = 0; j < RasterID->GetRasterXSize(); j++)
-    {
-      if (i == 0)
-      {
-        Row[j] = j+1;
-      }
-      else
-      {
-        Row[j] = RasterID->GetRasterYSize()*i+(j+1);
-      }
-    }
-    RasterIDBand->RasterIO( GF_Write, 0, i, RasterID->GetRasterXSize(), 1,
+	  for (unsigned int j = 0; j < RasterID->GetRasterXSize(); j++)
+	  {
+		  if (i == 0)
+		  {
+			  Row[j] = j+1;
+		  }
+		  else
+		  {
+			  Row[j] = RasterID->GetRasterYSize()*i+(j+1);
+		  }
+	  }
+	  RasterIDBand->RasterIO( GF_Write, 0, i, RasterID->GetRasterXSize(), 1,
                             Row, RasterID->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
   }
 
@@ -837,7 +853,7 @@ void LandProcessor::preprocessRasterData()
 
   if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputOutletsRasterFile)))
   {
-    mp_RasterDriver->Delete(getOutputRasterPath(m_OutputOutletsRasterFile).c_str());
+	  mp_RasterDriver->Delete(getOutputRasterPath(m_OutputOutletsRasterFile).c_str());
   }
 
   Outlets = mp_RasterDriver->Create(getOutputRasterPath(m_OutputOutletsRasterFile).c_str(), DEM->GetRasterXSize(), DEM->GetRasterYSize(), 1, GDT_Int32, nullptr);
@@ -853,44 +869,44 @@ void LandProcessor::preprocessRasterData()
 
   for (unsigned int i = 0; i < Outlets->GetRasterYSize(); i++)
   {
-    for (unsigned int j = 0; j < Outlets->GetRasterXSize(); j++)
-    {
-      if (i == 0 or j == 0 or i == Outlets->GetRasterYSize()-1 or j == DEM->GetRasterXSize()-1)
-      {
-        Row[j] = -9999;
-      }
-      else
-      {
-        PlotsRBand->RasterIO( GF_Read, 0, i-1, DEM->GetRasterXSize(), 1, PlotsUpperRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-        PlotsRBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, PlotsMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-        PlotsRBand->RasterIO( GF_Read, 0, i+1, DEM->GetRasterXSize(), 1, PlotsLowerRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-        DrainageBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, DrainageRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-        RasterIDBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, RasterIDRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-        if (PlotsMiddleRow[j] == -9999)
-        {
-          Row[j] = -9999;
-        }
-        else
-        {
-          if ((DrainageRow[j] == 1 and PlotsMiddleRow[j]!= PlotsUpperRow[j+1]) or
-              (DrainageRow[j] == 2 and PlotsMiddleRow[j] != PlotsUpperRow[j]) or
-              (DrainageRow[j] == 3 and PlotsMiddleRow[j] != PlotsUpperRow[j-1]) or
-              (DrainageRow[j] == 4 and PlotsMiddleRow[j] != PlotsMiddleRow[j-1]) or
-              (DrainageRow[j] == 5 and PlotsMiddleRow[j] != PlotsLowerRow[j-1]) or
-              (DrainageRow[j] == 6 and PlotsMiddleRow[j] != PlotsLowerRow[j]) or
-              (DrainageRow[j] == 7 and PlotsMiddleRow[j] != PlotsLowerRow[j+1]) or
-              (DrainageRow[j] == 8 and PlotsMiddleRow[j] != PlotsMiddleRow[j+1]))
-          {
-            Row[j] = RasterIDRow[j];
-          }
-          else
-          {
-            Row[j] = -9999;
-          }
-        }
-      }
-    }
-    OutletsBand->RasterIO( GF_Write, 0, i, Outlets->GetRasterXSize(), 1, Row, Outlets->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+	  for (unsigned int j = 0; j < Outlets->GetRasterXSize(); j++)
+	  {
+		  if (i == 0 or j == 0 or i == Outlets->GetRasterYSize()-1 or j == DEM->GetRasterXSize()-1)
+		  {
+			  Row[j] = -9999;
+		  }
+		  else
+		  {
+			  PlotsRBand->RasterIO( GF_Read, 0, i-1, DEM->GetRasterXSize(), 1, PlotsUpperRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+			  PlotsRBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, PlotsMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+			  PlotsRBand->RasterIO( GF_Read, 0, i+1, DEM->GetRasterXSize(), 1, PlotsLowerRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+			  DrainageBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, DrainageRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+			  RasterIDBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, RasterIDRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+			  if (PlotsMiddleRow[j] == -9999)
+			  {
+				  Row[j] = -9999;
+			  }
+			  else
+			  {
+				  if ((DrainageRow[j] == 1 and PlotsMiddleRow[j]!= PlotsUpperRow[j+1]) or
+						  (DrainageRow[j] == 2 and PlotsMiddleRow[j] != PlotsUpperRow[j]) or
+						  (DrainageRow[j] == 3 and PlotsMiddleRow[j] != PlotsUpperRow[j-1]) or
+						  (DrainageRow[j] == 4 and PlotsMiddleRow[j] != PlotsMiddleRow[j-1]) or
+						  (DrainageRow[j] == 5 and PlotsMiddleRow[j] != PlotsLowerRow[j-1]) or
+						  (DrainageRow[j] == 6 and PlotsMiddleRow[j] != PlotsLowerRow[j]) or
+						  (DrainageRow[j] == 7 and PlotsMiddleRow[j] != PlotsLowerRow[j+1]) or
+						  (DrainageRow[j] == 8 and PlotsMiddleRow[j] != PlotsMiddleRow[j+1]))
+				  {
+					  Row[j] = RasterIDRow[j];
+				  }
+				  else
+				  {
+					  Row[j] = -9999;
+				  }
+			  }
+		  }
+	  }
+	  OutletsBand->RasterIO( GF_Write, 0, i, Outlets->GetRasterXSize(), 1, Row, Outlets->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
   }
 
   CPLFree(Row);
@@ -915,7 +931,7 @@ void LandProcessor::preprocessRasterData()
 
   if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputReceiversRasterFile)))
   {
-    mp_RasterDriver->Delete(getOutputRasterPath(m_OutputReceiversRasterFile).c_str());
+	  mp_RasterDriver->Delete(getOutputRasterPath(m_OutputReceiversRasterFile).c_str());
   }
 
   Receivers = mp_RasterDriver->Create( getOutputRasterPath(m_OutputReceiversRasterFile).c_str(), DEM->GetRasterXSize(), DEM->GetRasterYSize(), 1, GDT_Int32, nullptr);
@@ -923,7 +939,7 @@ void LandProcessor::preprocessRasterData()
 
   if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputDownslopeRasterFile)))
   {
-    mp_RasterDriver->Delete(getOutputRasterPath(m_OutputDownslopeRasterFile).c_str());
+	  mp_RasterDriver->Delete(getOutputRasterPath(m_OutputDownslopeRasterFile).c_str());
   }
 
   Downslope = mp_RasterDriver->Create( getOutputRasterPath(m_OutputDownslopeRasterFile).c_str(), DEM->GetRasterXSize(), DEM->GetRasterYSize(), 1, GDT_Int32, nullptr);
@@ -943,39 +959,39 @@ void LandProcessor::preprocessRasterData()
 
   for (unsigned int i = 0; i<DEM->GetRasterYSize(); i++)
   {
-    for (unsigned int j = 0; j<DEM->GetRasterXSize(); j++)
-    {
-      if (i == 0 or j == 0 or i == DEM->GetRasterYSize()-1 or j == DEM->GetRasterXSize()-1)
-      {
-        Row[j] = -9999;
-      }
-      else
-      {
-        OutletsBand->RasterIO( GF_Read, 0, i-1, DEM->GetRasterXSize(), 1, OutletsUpperRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-        OutletsBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, OutletsMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-        OutletsBand->RasterIO( GF_Read, 0, i+1, DEM->GetRasterXSize(), 1, OutletsLowerRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-        DrainageBand->RasterIO( GF_Read, 0, i-1, DEM->GetRasterXSize(), 1, DrainageUpperRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-        DrainageBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, DrainageMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-        DrainageBand->RasterIO( GF_Read, 0, i+1, DEM->GetRasterXSize(), 1, DrainageLowerRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-        RasterIDBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, RasterIDMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-        if ((DrainageUpperRow[j-1] == 7 and OutletsUpperRow[j-1] != -9999) or
-            (DrainageUpperRow[j] == 6 and OutletsUpperRow[j] != -9999) or
-            (DrainageUpperRow[j+1] == 5 and OutletsUpperRow[j+1] != -9999) or
-            (DrainageMiddleRow[j+1] == 4 and OutletsMiddleRow[j+1] != -9999) or
-            (DrainageLowerRow[j+1] == 3 and OutletsLowerRow[j+1] != -9999) or
-            (DrainageLowerRow[j] == 2 and OutletsLowerRow[j] != -9999) or
-            (DrainageLowerRow[j-1] == 1 and OutletsLowerRow[j-1] != -9999) or
-            (DrainageMiddleRow[j-1] == 8 and OutletsMiddleRow[j-1] != -9999))
-        {
-          Row[j] = RasterIDMiddleRow[j];
-        }
-        else
-        {
-          Row[j] = -9999;
-        }
-      }
-    }
-    ReceiversBand->RasterIO( GF_Write, 0, i, DEM->GetRasterXSize(), 1, Row, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+	  for (unsigned int j = 0; j<DEM->GetRasterXSize(); j++)
+	  {
+		  if (i == 0 or j == 0 or i == DEM->GetRasterYSize()-1 or j == DEM->GetRasterXSize()-1)
+		  {
+			  Row[j] = -9999;
+		  }
+		  else
+		  {
+			  OutletsBand->RasterIO( GF_Read, 0, i-1, DEM->GetRasterXSize(), 1, OutletsUpperRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+			  OutletsBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, OutletsMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+			  OutletsBand->RasterIO( GF_Read, 0, i+1, DEM->GetRasterXSize(), 1, OutletsLowerRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+			  DrainageBand->RasterIO( GF_Read, 0, i-1, DEM->GetRasterXSize(), 1, DrainageUpperRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+			  DrainageBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, DrainageMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+			  DrainageBand->RasterIO( GF_Read, 0, i+1, DEM->GetRasterXSize(), 1, DrainageLowerRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+			  RasterIDBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, RasterIDMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+			  if ((DrainageUpperRow[j-1] == 7 and OutletsUpperRow[j-1] != -9999) or
+					  (DrainageUpperRow[j] == 6 and OutletsUpperRow[j] != -9999) or
+					  (DrainageUpperRow[j+1] == 5 and OutletsUpperRow[j+1] != -9999) or
+					  (DrainageMiddleRow[j+1] == 4 and OutletsMiddleRow[j+1] != -9999) or
+					  (DrainageLowerRow[j+1] == 3 and OutletsLowerRow[j+1] != -9999) or
+					  (DrainageLowerRow[j] == 2 and OutletsLowerRow[j] != -9999) or
+					  (DrainageLowerRow[j-1] == 1 and OutletsLowerRow[j-1] != -9999) or
+					  (DrainageMiddleRow[j-1] == 8 and OutletsMiddleRow[j-1] != -9999))
+			  {
+				  Row[j] = RasterIDMiddleRow[j];
+			  }
+			  else
+			  {
+				  Row[j] = -9999;
+			  }
+		  }
+	  }
+	  ReceiversBand->RasterIO( GF_Write, 0, i, DEM->GetRasterXSize(), 1, Row, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
   }
 
   CPLFree(OutletsUpperRow);
@@ -1005,58 +1021,58 @@ void LandProcessor::preprocessRasterData()
 
   for (unsigned int i = 0; i<DEM->GetRasterYSize(); i++)
   {
-    for (unsigned int j = 0; j<DEM->GetRasterXSize(); j++)
-    {
-      if (i == 0 or j == 0 or i == DEM->GetRasterYSize()-1 or j == DEM->GetRasterXSize()-1)
-      {
-        Row[j] = -9999;
-      }
-      else
-      {
-        OutletsBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, OutletsMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-        DrainageBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, DrainageMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-        RasterIDBand->RasterIO( GF_Read, 0, i-1, DEM->GetRasterXSize(), 1, RasterIDUpperRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-        RasterIDBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, RasterIDMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-        RasterIDBand->RasterIO( GF_Read, 0, i+1, DEM->GetRasterXSize(), 1, RasterIDLowerRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-        if (DrainageMiddleRow[j] == 1 and OutletsMiddleRow[j] != -9999)
-        {
-          Row[j] = RasterIDUpperRow[j+1];
-        }
-        else if (DrainageMiddleRow[j] == 2 and OutletsMiddleRow[j] != -9999)
-        {
-          Row[j] = RasterIDUpperRow[j];
-        }
-        else if (DrainageMiddleRow[j] == 3 and OutletsMiddleRow[j] != -9999)
-        {
-          Row[j] = RasterIDUpperRow[j-1];
-        }
-        else if (DrainageMiddleRow[j] == 4 and OutletsMiddleRow[j] != -9999)
-        {
-          Row[j] = RasterIDMiddleRow[j-1];
-        }
-        else if (DrainageMiddleRow[j] == 5 and OutletsMiddleRow[j] != -9999)
-        {
-          Row[j] = RasterIDLowerRow[j-1];
-        }
-        else if (DrainageMiddleRow[j] == 6 and OutletsMiddleRow[j] != -9999)
-        {
-          Row[j] = RasterIDLowerRow[j];
-        }
-        else if (DrainageMiddleRow[j] == 7 and OutletsMiddleRow[j] != -9999)
-        {
-          Row[j] = RasterIDLowerRow[j+1];
-        }
-        else if (DrainageMiddleRow[j] == 8 and OutletsMiddleRow[j] != -9999)
-        {
-          Row[j] = RasterIDMiddleRow[j+1];
-        }
-        else
-        {
-          Row[j] = -9999;
-        }
-      }
-    }
-    DownslopeBand->RasterIO( GF_Write, 0, i, DEM->GetRasterXSize(), 1, Row, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+	  for (unsigned int j = 0; j<DEM->GetRasterXSize(); j++)
+	  {
+		  if (i == 0 or j == 0 or i == DEM->GetRasterYSize()-1 or j == DEM->GetRasterXSize()-1)
+		  {
+			  Row[j] = -9999;
+		  }
+		  else
+		  {
+			  OutletsBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, OutletsMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+			  DrainageBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, DrainageMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+			  RasterIDBand->RasterIO( GF_Read, 0, i-1, DEM->GetRasterXSize(), 1, RasterIDUpperRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+			  RasterIDBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, RasterIDMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+			  RasterIDBand->RasterIO( GF_Read, 0, i+1, DEM->GetRasterXSize(), 1, RasterIDLowerRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+			  if (DrainageMiddleRow[j] == 1 and OutletsMiddleRow[j] != -9999)
+			  {
+				  Row[j] = RasterIDUpperRow[j+1];
+			  }
+			  else if (DrainageMiddleRow[j] == 2 and OutletsMiddleRow[j] != -9999)
+			  {
+				  Row[j] = RasterIDUpperRow[j];
+			  }
+			  else if (DrainageMiddleRow[j] == 3 and OutletsMiddleRow[j] != -9999)
+			  {
+				  Row[j] = RasterIDUpperRow[j-1];
+			  }
+			  else if (DrainageMiddleRow[j] == 4 and OutletsMiddleRow[j] != -9999)
+			  {
+				  Row[j] = RasterIDMiddleRow[j-1];
+			  }
+			  else if (DrainageMiddleRow[j] == 5 and OutletsMiddleRow[j] != -9999)
+			  {
+				  Row[j] = RasterIDLowerRow[j-1];
+			  }
+			  else if (DrainageMiddleRow[j] == 6 and OutletsMiddleRow[j] != -9999)
+			  {
+				  Row[j] = RasterIDLowerRow[j];
+			  }
+			  else if (DrainageMiddleRow[j] == 7 and OutletsMiddleRow[j] != -9999)
+			  {
+				  Row[j] = RasterIDLowerRow[j+1];
+			  }
+			  else if (DrainageMiddleRow[j] == 8 and OutletsMiddleRow[j] != -9999)
+			  {
+				  Row[j] = RasterIDMiddleRow[j+1];
+			  }
+			  else
+			  {
+				  Row[j] = -9999;
+			  }
+		  }
+	  }
+	  DownslopeBand->RasterIO( GF_Write, 0, i, DEM->GetRasterXSize(), 1, Row, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
   }
 
   CPLFree(OutletsMiddleRow);
@@ -1080,7 +1096,7 @@ void LandProcessor::preprocessRasterData()
 
   if (openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputCatchmentsRasterFile)))
   {
-    mp_RasterDriver->Delete(getOutputRasterPath(m_OutputCatchmentsRasterFile).c_str());
+	  mp_RasterDriver->Delete(getOutputRasterPath(m_OutputCatchmentsRasterFile).c_str());
   }
 
   Catchments = mp_RasterDriver->Create(getOutputRasterPath(m_OutputCatchmentsRasterFile).c_str(),
@@ -1093,27 +1109,27 @@ void LandProcessor::preprocessRasterData()
 
   for (unsigned int i = 0; i < DEM->GetRasterYSize(); i++)
   {
-    for (unsigned int j = 0; j < DEM->GetRasterXSize(); j++)
-    {
-      if (i == 0 or j == 0 or i == DEM->GetRasterYSize()-1 or j == DEM->GetRasterXSize()-1)
-      {
-        Row[j] = -9999;
-      }
-      else
-      {
-        OutletsBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, OutletsMiddleRow, DEM->GetRasterXSize(),
+	  for (unsigned int j = 0; j < DEM->GetRasterXSize(); j++)
+	  {
+		  if (i == 0 or j == 0 or i == DEM->GetRasterYSize()-1 or j == DEM->GetRasterXSize()-1)
+		  {
+			  Row[j] = -9999;
+		  }
+		  else
+		  {
+			  OutletsBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, OutletsMiddleRow, DEM->GetRasterXSize(),
                                1, GDT_Int32, 0, 0 );
-        if (OutletsMiddleRow[j] != -9999)
-        {
-          Row[j] = OutletsMiddleRow[j];
-        }
-        else
-        {
-          Row[j] = -9999;
-        }
-      }
-    }
-    CatchmentsBand->RasterIO( GF_Write, 0, i, DEM->GetRasterXSize(), 1, Row, DEM->GetRasterXSize(),
+			  if (OutletsMiddleRow[j] != -9999)
+			  {
+				  Row[j] = OutletsMiddleRow[j];
+			  }
+			  else
+			  {
+				  Row[j] = -9999;
+			  }
+		  }
+	  }
+	  CatchmentsBand->RasterIO( GF_Write, 0, i, DEM->GetRasterXSize(), 1, Row, DEM->GetRasterXSize(),
                               1, GDT_Int32, 0, 0 );
   }
 
@@ -1145,124 +1161,124 @@ void LandProcessor::preprocessRasterData()
 
   for (unsigned int i = 0; i < DEM->GetRasterYSize(); i++)
   {
-    PlotsRBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, PlotsMiddleRow, DEM->GetRasterXSize(),
+	  PlotsRBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, PlotsMiddleRow, DEM->GetRasterXSize(),
                           1, GDT_Int32, 0, 0 );
-    for (unsigned int j = 0; j < DEM->GetRasterXSize(); j++)
-    {
-      if (PlotsMiddleRow[j] != -9999)
-      {
-        PlotsCount += 1;
-      }
-    }
+	  for (unsigned int j = 0; j < DEM->GetRasterXSize(); j++)
+	  {
+		  if (PlotsMiddleRow[j] != -9999)
+		  {
+			  PlotsCount += 1;
+		  }
+	  }
   }
 
   CatchmentsCount = 0;
 
   for (unsigned int i = 0; i < DEM->GetRasterYSize(); i++)
   {
-    CatchmentsBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, CatchmentsMiddleRow, DEM->GetRasterXSize(),
+	  CatchmentsBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, CatchmentsMiddleRow, DEM->GetRasterXSize(),
                               1, GDT_Int32, 0, 0 );
-    for (unsigned int j = 0; j < DEM->GetRasterXSize(); j++)
-    {
-      if (CatchmentsMiddleRow[j] != -9999)
-      {
-        CatchmentsCount += 1;
-      }
-    }
+	  for (unsigned int j = 0; j < DEM->GetRasterXSize(); j++)
+	  {
+		  if (CatchmentsMiddleRow[j] != -9999)
+		  {
+			  CatchmentsCount += 1;
+		  }
+	  }
   }
 
   while (CatchmentsCount != PlotsCount)
   {
-    for (unsigned int i = 0; i < DEM->GetRasterYSize(); i++)
-    {
-      for (unsigned int j = 0; j < DEM->GetRasterXSize(); j++)
-      {
-        if (i == 0 or j == 0 or i == DEM->GetRasterYSize()-1 or j == DEM->GetRasterXSize()-1)
-        {
-          Row[j] = -9999;
-        }
-        else
-        {
-          CatchmentsBand->RasterIO( GF_Read, 0, i-1, DEM->GetRasterXSize(), 1, CatchmentsUpperRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-          CatchmentsBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, CatchmentsMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-          CatchmentsBand->RasterIO( GF_Read, 0, i+1, DEM->GetRasterXSize(), 1, CatchmentsLowerRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-          PlotsRBand->RasterIO( GF_Read, 0, i-1, DEM->GetRasterXSize(), 1, PlotsUpperRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-          PlotsRBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, PlotsMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-          PlotsRBand->RasterIO( GF_Read, 0, i+1, DEM->GetRasterXSize(), 1, PlotsLowerRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-          DrainageBand->RasterIO( GF_Read, 0, i-1, DEM->GetRasterXSize(), 1, DrainageUpperRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-          DrainageBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, DrainageMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-          DrainageBand->RasterIO( GF_Read, 0, i+1, DEM->GetRasterXSize(), 1, DrainageLowerRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-          if (CatchmentsMiddleRow[j] == -9999)
-          {
-            if (CatchmentsUpperRow[j+1] != -9999 and DrainageMiddleRow[j] == 1 and PlotsMiddleRow[j] == PlotsUpperRow[j+1])
-            {
-              Row[j] = CatchmentsUpperRow[j+1];
-            }
-            else if (CatchmentsUpperRow[j] != -9999 and DrainageMiddleRow[j] == 2 and PlotsMiddleRow[j] == PlotsUpperRow[j])
-            {
-              Row[j] = CatchmentsUpperRow[j];
-            }
-            else if (CatchmentsUpperRow[j-1] != -9999 and DrainageMiddleRow[j] == 3 and PlotsMiddleRow[j] == PlotsUpperRow[j-1])
-            {
-              Row[j] = CatchmentsUpperRow[j-1];
-            }
-            else if (CatchmentsMiddleRow[j-1] != -9999 and DrainageMiddleRow[j] == 4 and PlotsMiddleRow[j] == PlotsMiddleRow[j-1])
-            {
-              Row[j] = CatchmentsMiddleRow[j-1];
-            }
-            else if (CatchmentsLowerRow[j-1] != -9999 and DrainageMiddleRow[j] == 5 and PlotsMiddleRow[j] == PlotsLowerRow[j-1])
-            {
-              Row[j] = CatchmentsLowerRow[j-1];
-            }
-            else if (CatchmentsLowerRow[j] != -9999 and DrainageMiddleRow[j] == 6 and PlotsMiddleRow[j] == PlotsLowerRow[j])
-            {
-              Row[j] = CatchmentsLowerRow[j];
-            }
-            else if (CatchmentsLowerRow[j+1] != -9999 and DrainageMiddleRow[j] == 7 and PlotsMiddleRow[j] == PlotsLowerRow[j+1])
-            {
-              Row[j] = CatchmentsLowerRow[j+1];
-            }
-            else if (CatchmentsMiddleRow[j+1] != -9999 and DrainageMiddleRow[j] == 8 and PlotsMiddleRow[j] == PlotsMiddleRow[j+1])
-            {
-              Row[j] = CatchmentsMiddleRow[j+1];
-            }
-            else
-            {
-              Row[j] = -9999;
-            }
-          }
-          else
-          {
-            Row[j] = CatchmentsMiddleRow[j];
-          }
-        }
-      }
-      CatchmentsBand->RasterIO( GF_Write, 0, i, DEM->GetRasterXSize(), 1, Row, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-    }
-    PlotsCount = 0;
-    for (unsigned int i = 0; i < DEM->GetRasterYSize(); i++)
-    {
-      PlotsRBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, PlotsMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-      for (unsigned int j = 0; j < DEM->GetRasterXSize(); j++)
-      {
-        if (PlotsMiddleRow[j] != -9999)
-        {
-          PlotsCount += 1;
-        }
-      }
-    }
-    CatchmentsCount = 0;
-    for (unsigned int i = 0; i < DEM->GetRasterYSize(); i++)
-    {
-      CatchmentsBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, CatchmentsMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
-      for (unsigned int j = 0; j < DEM->GetRasterXSize(); j++)
-      {
-        if (CatchmentsMiddleRow[j] != -9999)
-        {
-          CatchmentsCount += 1;
-        }
-      }
-    }
+	  for (unsigned int i = 0; i < DEM->GetRasterYSize(); i++)
+	  {
+		  for (unsigned int j = 0; j < DEM->GetRasterXSize(); j++)
+		  {
+			  if (i == 0 or j == 0 or i == DEM->GetRasterYSize()-1 or j == DEM->GetRasterXSize()-1)
+			  {
+				  Row[j] = -9999;
+			  }
+			  else
+			  {
+				  CatchmentsBand->RasterIO( GF_Read, 0, i-1, DEM->GetRasterXSize(), 1, CatchmentsUpperRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+				  CatchmentsBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, CatchmentsMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+				  CatchmentsBand->RasterIO( GF_Read, 0, i+1, DEM->GetRasterXSize(), 1, CatchmentsLowerRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+				  PlotsRBand->RasterIO( GF_Read, 0, i-1, DEM->GetRasterXSize(), 1, PlotsUpperRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+				  PlotsRBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, PlotsMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+				  PlotsRBand->RasterIO( GF_Read, 0, i+1, DEM->GetRasterXSize(), 1, PlotsLowerRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+				  DrainageBand->RasterIO( GF_Read, 0, i-1, DEM->GetRasterXSize(), 1, DrainageUpperRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+				  DrainageBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, DrainageMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+				  DrainageBand->RasterIO( GF_Read, 0, i+1, DEM->GetRasterXSize(), 1, DrainageLowerRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+				  if (CatchmentsMiddleRow[j] == -9999)
+				  {
+					  if (CatchmentsUpperRow[j+1] != -9999 and DrainageMiddleRow[j] == 1 and PlotsMiddleRow[j] == PlotsUpperRow[j+1])
+					  {
+						  Row[j] = CatchmentsUpperRow[j+1];
+					  }
+					  else if (CatchmentsUpperRow[j] != -9999 and DrainageMiddleRow[j] == 2 and PlotsMiddleRow[j] == PlotsUpperRow[j])
+					  {
+						  Row[j] = CatchmentsUpperRow[j];
+					  }
+					  else if (CatchmentsUpperRow[j-1] != -9999 and DrainageMiddleRow[j] == 3 and PlotsMiddleRow[j] == PlotsUpperRow[j-1])
+					  {
+						  Row[j] = CatchmentsUpperRow[j-1];
+					  }
+					  else if (CatchmentsMiddleRow[j-1] != -9999 and DrainageMiddleRow[j] == 4 and PlotsMiddleRow[j] == PlotsMiddleRow[j-1])
+					  {
+						  Row[j] = CatchmentsMiddleRow[j-1];
+					  }
+					  else if (CatchmentsLowerRow[j-1] != -9999 and DrainageMiddleRow[j] == 5 and PlotsMiddleRow[j] == PlotsLowerRow[j-1])
+					  {
+						  Row[j] = CatchmentsLowerRow[j-1];
+					  }
+					  else if (CatchmentsLowerRow[j] != -9999 and DrainageMiddleRow[j] == 6 and PlotsMiddleRow[j] == PlotsLowerRow[j])
+					  {
+						  Row[j] = CatchmentsLowerRow[j];
+					  }
+					  else if (CatchmentsLowerRow[j+1] != -9999 and DrainageMiddleRow[j] == 7 and PlotsMiddleRow[j] == PlotsLowerRow[j+1])
+					  {
+						  Row[j] = CatchmentsLowerRow[j+1];
+					  }
+					  else if (CatchmentsMiddleRow[j+1] != -9999 and DrainageMiddleRow[j] == 8 and PlotsMiddleRow[j] == PlotsMiddleRow[j+1])
+					  {
+						  Row[j] = CatchmentsMiddleRow[j+1];
+					  }
+					  else
+					  {
+						  Row[j] = -9999;
+					  }
+				  }
+				  else
+				  {
+					  Row[j] = CatchmentsMiddleRow[j];
+				  }
+			  }
+		  }
+		  CatchmentsBand->RasterIO( GF_Write, 0, i, DEM->GetRasterXSize(), 1, Row, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+	  }
+	  PlotsCount = 0;
+	  for (unsigned int i = 0; i < DEM->GetRasterYSize(); i++)
+	  {
+		  PlotsRBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, PlotsMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+		  for (unsigned int j = 0; j < DEM->GetRasterXSize(); j++)
+		  {
+			  if (PlotsMiddleRow[j] != -9999)
+			  {
+				  PlotsCount += 1;
+			  }
+		  }
+	  }
+	  CatchmentsCount = 0;
+	  for (unsigned int i = 0; i < DEM->GetRasterYSize(); i++)
+	  {
+		  CatchmentsBand->RasterIO( GF_Read, 0, i, DEM->GetRasterXSize(), 1, CatchmentsMiddleRow, DEM->GetRasterXSize(), 1, GDT_Int32, 0, 0 );
+		  for (unsigned int j = 0; j < DEM->GetRasterXSize(); j++)
+		  {
+			  if (CatchmentsMiddleRow[j] != -9999)
+			  {
+				  CatchmentsCount += 1;
+			  }
+		  }
+	  }
   }
 
   CPLFree(CatchmentsUpperRow);
@@ -1362,22 +1378,22 @@ void LandProcessor::createSRFandLNR()
 
   if (!openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputCatchmentsRasterFile)))
   {
-    throw std::runtime_error("LandProcessor::createSRFandLNR(): " + m_OutputCatchmentsRasterFile + ": no such file in the output raster directory");
+	  throw std::runtime_error("LandProcessor::createSRFandLNR(): " + m_OutputCatchmentsRasterFile + ": no such file in the output raster directory");
   }
 
   if (!openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputOutletsRasterFile)))
   {
-    throw std::runtime_error("LandProcessor::createSRFandLNR(): " + m_OutputOutletsRasterFile + ": no such file in the output raster directory");
+	  throw std::runtime_error("LandProcessor::createSRFandLNR(): " + m_OutputOutletsRasterFile + ": no such file in the output raster directory");
   }
 
   if (!openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputReceiversRasterFile)))
   {
-    throw std::runtime_error("LandProcessor::createSRFandLNR(): " + m_OutputReceiversRasterFile + ": no such file in the output raster directory");
+	  throw std::runtime_error("LandProcessor::createSRFandLNR(): " + m_OutputReceiversRasterFile + ": no such file in the output raster directory");
   }
 
   if (!openfluid::tools::Filesystem::isFile(getOutputRasterPath(m_OutputDownslopeRasterFile)))
   {
-    throw std::runtime_error("LandProcessor::createSRFandLNR(): " + m_OutputDownslopeRasterFile + ": no such file in the output raster directory");
+	  throw std::runtime_error("LandProcessor::createSRFandLNR(): " + m_OutputDownslopeRasterFile + ": no such file in the output raster directory");
   }
 
   // ================================================================================================
@@ -1390,7 +1406,7 @@ void LandProcessor::createSRFandLNR()
 
   if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputCatchmentsVectorFile)))
   {
-    mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputCatchmentsVectorFile).c_str());
+	  mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputCatchmentsVectorFile).c_str());
   }
 
   Catchments = mp_VectorDriver->CreateDataSource(getOutputVectorPath(m_OutputCatchmentsVectorFile).c_str());
@@ -1413,18 +1429,18 @@ void LandProcessor::createSRFandLNR()
 
   while ((CatchmentsFeature = CatchmentsLayer->GetNextFeature()) != nullptr)
   {
-    if (CatchmentsFeature->GetFieldAsInteger(0) == -9999)
-    {
-      CatchmentsFeature->SetField(0, 0);
-    }
-    CatchmentsLayer->SetFeature(CatchmentsFeature);
+	  if (CatchmentsFeature->GetFieldAsInteger(0) == -9999)
+	  {
+		  CatchmentsFeature->SetField(0, 0);
+	  }
+	  CatchmentsLayer->SetFeature(CatchmentsFeature);
   }
 
   OGRDataSource::DestroyDataSource(Catchments);
 
   if (openfluid::tools::Filesystem::isFile(getOutputVectorPath(m_OutputOutletsVectorFile)))
   {
-    mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputOutletsVectorFile).c_str());
+	  mp_VectorDriver->DeleteDataSource(getOutputVectorPath(m_OutputOutletsVectorFile).c_str());
   }
 
   Outlets = mp_VectorDriver->CreateDataSource(getOutputVectorPath(m_OutputOutletsVectorFile).c_str());
@@ -1435,7 +1451,7 @@ void LandProcessor::createSRFandLNR()
 
   for (unsigned int i = 0; i < FieldNamesTable.size(); i++)
   {
-    createField(OutletsLayer, FieldNamesTable[i].c_str(), OFTInteger);
+	  createField(OutletsLayer, FieldNamesTable[i].c_str(), OFTInteger);
   }
 
   GDALClose( Dataset );
@@ -1451,11 +1467,11 @@ void LandProcessor::createSRFandLNR()
 
   while ((OutletsFeature = OutletsLayer->GetNextFeature()) != nullptr)
   {
-    if (OutletsFeature->GetFieldAsInteger(0) == -9999)
-    {
-      OutletsFeature->SetField(0, 0);
-    }
-    OutletsLayer->SetFeature(OutletsFeature);
+	  if (OutletsFeature->GetFieldAsInteger(0) == -9999)
+	  {
+		  OutletsFeature->SetField(0, 0);
+	  }
+	  OutletsLayer->SetFeature(OutletsFeature);
   }
 
   GDALClose( Dataset );
@@ -6973,3 +6989,4 @@ void LandProcessor::setLandUseFieldName(const std::string& LandUseFieldName)
 
 	m_LandUseFieldName = LandUseFieldName;
 }
+
