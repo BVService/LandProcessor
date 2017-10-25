@@ -97,10 +97,20 @@ class PreparationSimulator : public openfluid::ware::PluggableSimulator
         LP.setLandUseFieldName(m_LandUseFieldName);
         LP.preprocessVectorData();
         LP.preprocessRasterData();
-        LP.createSRFandLNR();
-        LP.setSRFParameters();
-        LP.setLNRParameters();
-        LP.releaseFiles();
+        LP.createCatchmentsVector();
+        LP.labelCatchments();
+        LP.createEntitiesVector();
+        LP.regroupEntitiesVector();
+        LP.createUnionVector();
+        LP.regroupUnionVector();
+        LP.createGroupedEntitiesVector();
+        LP.createLNRVector();
+        LP.createARLVector();
+        LP.setLNRIDs();
+        LP.setARLIDs();
+        LP.setARLAttributes();
+        LP.setLNRAttributes();
+        LP.releaseARLAndLNRVectors();
       }
       catch (std::exception& E)
       {

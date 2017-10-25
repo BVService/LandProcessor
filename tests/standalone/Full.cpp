@@ -51,18 +51,31 @@ int main(int argc, char *argv[])
                      TESTS_EXECS_PATH+"/DardaillonSmall_0/output",
                      TESTS_EXECS_PATH+"/DardaillonSmall_0/release");
 
-    LP.preprocessVectorData();
-    LP.preprocessRasterData();
-    LP.createSRFandLNR();
-    LP.setSRFParameters();
-    LP.setLNRParameters();
-    LP.createSU();
-    LP.createRS();
-    LP.createLI();
-    LP.setSUParameters();
-    LP.setRSParameters();
-    LP.setLIParameters();
-    LP.releaseFiles();
+	  LP.setLandUseFieldName("LandUse");
+	  LP.preprocessVectorData();
+	  LP.preprocessRasterData();
+	  LP.createCatchmentsVector();
+	  LP.labelCatchments();
+	  LP.createEntitiesVector();
+	  LP.regroupEntitiesVector();
+	  LP.createUnionVector();
+	  LP.regroupUnionVector();
+	  LP.createGroupedEntitiesVector();
+	  LP.createLNRVector();
+	  LP.createARLVector();
+	  LP.setLNRIDs();
+	  LP.setARLIDs();
+	  LP.setARLAttributes();
+	  LP.setLNRAttributes();
+	  LP.releaseARLAndLNRVectors();
+	  LP.createSUVector();
+	  LP.createRSVector();
+	  LP.createLIVector();
+	  LP.setSUAttributes();
+	  LP.setRSAttributes();
+	  LP.setLIAttributes();
+	  LP.releaseSURSLIVectors();
+	  LP.releaseFiles();
   }
   catch (std::exception &E)
   {
@@ -70,7 +83,7 @@ int main(int argc, char *argv[])
     return -1;
   }
 
-  std::vector<std::string> ShapefilesToCompare = {"SRF","LNR","SU","RS","LI"};
+  std::vector<std::string> ShapefilesToCompare = {"ARL","LNR","SU","RS","LI"};
   std::string WorkTmpPath = openfluid::tools::Filesystem::makeUniqueSubdirectory(openfluid::base::Environment::getTempDir(),
                                                                                  "full-shpcompare");
 

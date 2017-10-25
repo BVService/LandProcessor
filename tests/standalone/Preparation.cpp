@@ -49,12 +49,23 @@ int main(int argc, char *argv[])
                      TESTS_EXECS_PATH+"/DardaillonSmall_2stages/output",
                      TESTS_EXECS_PATH+"/DardaillonSmall_2stages/release");
 
-    LP.preprocessVectorData();
-    LP.preprocessRasterData();
-    LP.createSRFandLNR();
-    LP.setSRFParameters();
-    LP.setLNRParameters();
-    LP.releaseFiles();
+	  LP.setLandUseFieldName("LandUse");
+	  LP.preprocessVectorData();
+	  LP.preprocessRasterData();
+	  LP.createCatchmentsVector();
+	  LP.labelCatchments();
+	  LP.createEntitiesVector();
+	  LP.regroupEntitiesVector();
+	  LP.createUnionVector();
+	  LP.regroupUnionVector();
+	  LP.createGroupedEntitiesVector();
+	  LP.createLNRVector();
+	  LP.createARLVector();
+	  LP.setLNRIDs();
+	  LP.setARLIDs();
+	  LP.setARLAttributes();
+	  LP.setLNRAttributes();
+	  LP.releaseARLAndLNRVectors();
   }
   catch (std::exception &E)
   {
@@ -63,7 +74,7 @@ int main(int argc, char *argv[])
   }
 
 
-  std::vector<std::string> ShapefilesToCompare = {"SRF","LNR"};
+  std::vector<std::string> ShapefilesToCompare = {"ARL","LNR"};
   std::string WorkTmpPath = openfluid::tools::Filesystem::makeUniqueSubdirectory(openfluid::base::Environment::getTempDir(),
                                                                                  "preparation-shpcompare");
   for (auto& ShpFile : ShapefilesToCompare)

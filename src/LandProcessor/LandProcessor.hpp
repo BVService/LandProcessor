@@ -34,7 +34,6 @@
 #include <gdal/gdal_priv.h>
 #include <gdal/cpl_conv.h>
 
-
 class LandProcessor
 {
   private:
@@ -76,8 +75,6 @@ class LandProcessor
     // Output files
 
     const std::string m_OutputPlotsVectorFile = "plots.shp";
-
-    const std::string m_OutputPlotsLimitsVectorFile = "plotslimits.shp";
 
     const std::string m_OutputPlotsRasterVectorFile = "plotsrastervector.shp";
 
@@ -121,7 +118,7 @@ class LandProcessor
     const std::string m_OutputCatchmentsRasterFile = "catchments.tif";
 
 
-    const std::string m_OutputSurfaceEntitiesVectorFile = "SRF.shp";
+    const std::string m_OutputArealEntitiesVectorFile = "ARL.shp";
 
     const std::string m_OutputLinearEntitiesVectorFile = "LNR.shp";
 
@@ -147,21 +144,7 @@ class LandProcessor
 
     OGRSFDriver *mp_VectorDriver = nullptr;
 
-    OGRDataSource *mp_DataSource = nullptr;
-
-    OGRLayer *mp_Layer = nullptr;
-
-    OGRFeature *mp_Feature = nullptr;
-
-    OGRSpatialReference *mp_SRS = nullptr;
-
-    OGRPoint *mp_Point = nullptr;
-
     GDALDriver *mp_RasterDriver = nullptr;
-
-    GDALDataset *mp_Dataset = nullptr;
-
-    double m_GeoTransformVal[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
     unsigned int m_MinEntSize = 250;
 
@@ -176,8 +159,6 @@ class LandProcessor
     std::string m_SQLDialect = "SQLITE";
 
     std::string m_SQLRequest;
-
-    std::string m_QMark = "'";
 
     std::string getInputVectorPath(const std::string& Filename = "") const;
 
@@ -197,54 +178,6 @@ class LandProcessor
 
     void releaseRasterFile(const std::string& Filename) const;
 
-    std::vector<int> findOverlapsForGeometry(int FID, OGRLayer *Layer);
-
-    std::vector<int> findDuplicatesForGeometry(int FID, OGRLayer *Layer);
-
-    void repackLayer(OGRDataSource* DataSource);
-
-    void createUniqueID(OGRDataSource *DataSource, int LayerIndex = 0);
-
-    bool checkVectorData(const std::string& FilePath, std::vector <int> GeometryTypes, int LayerIndex = 0);
-
-    bool checkRasterData(const std::string& FilePath, int BandIndex = 1);
-
-    void checkVectorDataDetails(const std::string& FilePath, std::vector <int> GeometryTypes, int LayerIndex = 0);
-
-    void checkRasterDataDetails(const std::string& FilePath, int BandIndex = 1);
-
-    bool checkVectorDriver();
-
-    bool checkRasterDriver();
-
-    bool checkVectorSRS(int LayerIndex = 0);
-
-    bool checkRasterSRS();
-
-    bool checkGeometries(std::vector <int> GeometryTypes, int LayerIndex = 0);
-
-    void copyVectorFile(const std::string& FromPath, const std::string& ToPath, const std::string& OriginalFileName, const std::string& NewFileName = "");
-
-    bool doesDataExist(const std::string& FilePath);
-
-    void attributeLinearStructures(const std::string& FileName);
-
-    int extractIntegerFromRasterToPoint(GDALDataset *Dataset, unsigned int RasterBandIndex);
-
-    float extractDoubleFromRasterToPoint(GDALDataset *Dataset, unsigned int RasterBandIndex);
-
-    void createField(OGRLayer *LayerName, const std::string& FieldName, OGRFieldType FieldType);
-
-    void getCentroidPoint(OGRGeometry *Geometry);
-
-    std::pair <double, double> getCoordinatesOfPoint();
-
-    std::pair <double, double> calculateOffset(double XCoord, double YCoord);
-
-    GDALRasterBand* getRasterBand(GDALDataset *Dataset, unsigned int RastreBandIndex);
-
-    void getGeoTransform(GDALDataset *Dataset);
-
   public:
 
     LandProcessor(const std::string& InputPath,
@@ -261,23 +194,47 @@ class LandProcessor
 
     void preprocessRasterData();
 
-    void createSRFandLNR();
+    void createCatchmentsVector();
 
-    void setSRFParameters();
+    void labelCatchments();
 
-    void setLNRParameters();
+    void createEntitiesVector();
 
-    void createSU();
+    void regroupEntitiesVector();
 
-    void createRS();
+    void createUnionVector();
 
-    void createLI();
+    void regroupUnionVector();
 
-    void setSUParameters();
+    void createGroupedEntitiesVector();
 
-    void setRSParameters();
+    void createLNRVector();
 
-    void setLIParameters();
+    void createARLVector();
+
+    void setLNRIDs();
+
+    void setARLIDs();
+
+    void setARLAttributes();
+
+    void setLNRAttributes();
+
+    void releaseARLAndLNRVectors();
+
+    void createSUVector();
+
+    void createRSVector();
+
+    void createLIVector();
+
+    void releaseSURSLIVectors();
+
+    void setSUAttributes();
+
+    void setRSAttributes();
+
+    void setLIAttributes();
 
     void releaseFiles();
 

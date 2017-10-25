@@ -1,8 +1,8 @@
 
-ADD_DEFINITIONS(-DVERBOSE_LEVEL=3)
+#ADD_DEFINITIONS(-DVERBOSE_LEVEL=3)
 
-SET(CPP_FILES LandProcessor.cpp Helpers.cpp)
-SET(HPP_FILES LandProcessor.hpp Helpers.hpp)
+SET(CPP_FILES LandProcessor.cpp Helpers.cpp VectorProcessing.cpp RasterProcessing.cpp VectorRegrouping.cpp LinearEntitiesProcessing.cpp ArealEntitiesProcessing.cpp)
+SET(HPP_FILES LandProcessor.hpp Helpers.hpp VectorProcessing.hpp RasterProcessing.hpp VectorRegrouping.hpp LinearEntitiesProcessing.hpp ArealEntitiesProcessing.hpp)
 
 ADD_LIBRARY(bvservice-landprocessor SHARED ${CPP_FILES} ${HPP_FILES})
 

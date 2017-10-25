@@ -47,14 +47,14 @@ int main(int argc, char *argv[])
                      TESTS_EXECS_PATH+"/DardaillonSmall_2stages/output",
                      TESTS_EXECS_PATH+"/DardaillonSmall_2stages/release");
 
-    LP.createSU();
-    LP.createRS();
-    LP.createLI();
-    LP.setSUParameters();
-    LP.setRSParameters();
-    LP.setLIParameters();
-    LP.releaseFiles();
-
+	  LP.createSUVector();
+	  LP.createRSVector();
+	  LP.createLIVector();
+	  LP.setSUAttributes();
+	  LP.setRSAttributes();
+	  LP.setLIAttributes();
+	  LP.releaseSURSLIVectors();
+	  LP.releaseFiles();
   }
   catch (std::exception& E)
   {

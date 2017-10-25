@@ -88,12 +88,13 @@ class ScenarioSimulator : public openfluid::ware::PluggableSimulator
                          OutputDir+"/"+GISdataReleaseDir);
 
         LP.setLandUseFieldName(m_LandUseFieldName);
-        LP.createSU();
-        LP.createRS();
-        LP.createLI();
-        LP.setSUParameters();
-        LP.setRSParameters();
-        LP.setLIParameters();
+        LP.createSUVector();
+        LP.createRSVector();
+        LP.createLIVector();
+        LP.setSUAttributes();
+        LP.setRSAttributes();
+        LP.setLIAttributes();
+        LP.releaseSURSLIVectors();
         LP.releaseFiles();
       }
       catch (std::exception& E)
